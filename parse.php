@@ -13,12 +13,12 @@
 	// --- Loading first line (header) ---
 	if(!$line = fgets(STDIN))
 	{
-		fputs(STDERR, "ERROR: No input\n"); // Error or success? @todo Ask on forum
+		fputs(STDERR, "PARSE ERROR: No input\n"); // Error or success? @todo Ask on forum
 		exit(11);
 	}
 	if(strtolower(trim($line)) != ".ippcode18")
 	{
-		fputs(STDERR, "ERROR: Invalid header\n");
+		fputs(STDERR, "PARSE ERROR: Invalid header\n");
 		exit(21);
 	}
 	
@@ -63,15 +63,22 @@
 		$instruction_E->appendChild($opCode_A);
 		$opCode_A->value = $instruction->getOpCode();
 		
-		// -- Argumments --
-		$arguments = $instruction->getArguments();
-		// - Arg1 node -		
-		if($arguments[0] == null)
-			continue;
-		$arg1_E = $dom->createElement("arg1");
-		$instruction_E->appendChild($arg1_E);
-		$arg1Text_E = $dom->createTextNode($arguments[0]);
-		$arg1_E->appendChild($arg1Text_E);		
+		// -- Arguments --
+		$argCount = $instruction->getArgumentCount();
+		for($i = 1; $i <= $argCount; $i++)
+		{
+			
+			//$argValue = $instruction->getArgumentValue($i);
+			$arg_E = $dom->createElement("arg".$i);	// e.g. <arg1>
+			$instruction_E->appendChild($arg_E);
+			
+			$type_A = $dom->createAttribute("type");	// e.g. <arg1 type="var">
+			$type_A->value = $instruction->getArgumentType($i);	
+			$arg_E->appendChild($type_A);
+			
+			$arg_T = $dom->createTextNode($instruction->getArgumentValue($i)); // e.g. <arg1 type="var">LF@test
+			$arg_E->appendChild($arg_T);
+		}
 	}
 
 	$dom->save("php://stdout");
@@ -83,6 +90,7 @@
 	{
 		private $opCode;
 		private $arg = array();
+		private $argCount;
 		
 		
 		public function __construct($line)
@@ -96,21 +104,18 @@
 			$this->setOpCode($split[0]);
 
 			// Check arguments count
-			$argCount = count($this->arg);
-			if($argCount+1 != count($split))
+			if($this->argCount+1 != count($split))
 			{
 				global $order;
-				fputs(STDERR, "ERROR: Too many arguments for instruction (#$order: \"$split[0]\")\n");	
+				fputs(STDERR, "PARSE ERROR: Too many arguments for instruction (#$order: \"$split[0]\")\n");	
 				exit(21);					
 			}
 			
 			// Set values for invidual arguments			
-			for($i = 0; $i < $argCount; $i++)
+			for($i = 0; $i < $this->argCount; $i++)
 			{
 				$this->arg[$i]->setValue($split[$i+1]);
 			}
-			
-
 		}
 		
 		
@@ -218,10 +223,11 @@
 				// Error
 				default:
 					global $order;
-					fputs(STDERR, "ERROR: Invalid instruction (#$order: \"$split[0]\")\n");
+					fputs(STDERR, "PARSE ERROR: Invalid instruction (#$order: \"$split[0]\")\n");
 					exit(21);	
 			}	
 			$this->opCode = $opCode;
+			$this->argCount = count($this->arg);
 			return true;
 		}
 		
@@ -232,76 +238,144 @@
 		
 		public function isEmpty()
 		{
-			fputs(STDERR, $this->opCode == null);
 			return $this->opCode == null;
 		}
 		
-		public function getArguments()
+		public function getArgumentValue($num)
 		{
-			$return = array();
-			
-			foreach($this->arg as $current)
-				$return[] = $current->printValue();
-				
-			return $return;
+			return $this->arg[$num-1]->getValue();
+		}
+		
+		public function getArgumentType($num)
+		{
+			return $this->arg[$num-1]->getType();
+		}
+		
+		public function getArgumentCount()
+		{
+			return $this->argCount;
 		}
 	}
 	
 	abstract class Argument
 	{
-		private $value;
+		protected $value;
+		protected $type;
 		
 		public function setValue($value)
 		{
-			if(!$this->isValueValid($value))
+			if(!$this->processValue($value))
 			{
-				fputs(STDERR, "ERROR: Invalid argument");
+				fputs(STDERR, "PARSE ERROR: Invalid argument");
 				exit(21);
 			}
 			
 			$this->value = $value;
 		}
 		
-		public function printValue()
+		public function getValue()
 		{
 			return $this->value;
 		}
+
+		public function getType()
+		{
+			return $this->type;
+		}
 		
-		abstract protected function isValueValid($value);
+		abstract protected function processValue($value);
 	}
 	
 	class VarArgument extends Argument
 	{
-		protected function isValueValid($value)
+		protected function processValue($value)
 		{
+			$this->type = "var";
 			return preg_match("/^(LF|TF|GF)@[[:alpha:]_\-$%*][[:alnum:]_\-$%*]*$/", $value);
 		}
 	}
 	
 	class SymbArgument extends Argument
 	{
-		protected function isValueValid($value)
+		public function setValue($value)
 		{
-			return true;
-			// @todo
+			$this->processValue($value);	// Value is set in this function
+		}
+		
+		
+		protected function processValue($value)
+		{
+			$split = explode("@", $value, 3);
+			
+			// Check if explode is valid
+			if(count($split) != 2)
+			{
+				fputs(STDERR, "PARSE ERROR: Too many '@' characters in constant definition\n");
+				exit(21);
+			}
+			
+			// Check if different types are valid
+			if($split[0] == "int")
+			{
+				if(!preg_match("/^-?\d+$/", $split[1]))
+				{
+					fputs(STDERR, "PARSE ERROR: Invalid characters in int constant\n");
+					exit(21);
+				}
+				$this->type = "int";
+			}
+			else if($split[0] == "bool")
+			{
+				if($split[1] != "true" || $split[1] != "false")
+				{
+					fputs(STDERR, "PARSE ERROR: Invalid characters in bool constant\n");
+					exit(21);
+				}
+				$this->type = "bool";
+			}
+			else if($split[0] == "string")
+			{
+				// @todo waiting on reply on the forum
+				$this->type = "string";
+			}
+			else if($split[0] == "LF" ||$split[0] == "TF" ||$split[0] == "GF")
+			{
+				if(!preg_match("/^[[:alpha:]_\-$%*][[:alnum:]_\-$%*]*$/", $split[1]))
+				{
+					fputs(STDERR, "PARSE ERROR: Invalid characters in var\n");
+					exit(21);
+				}				
+				$this->type = "var";
+				$this->value = $value;
+				return;
+			}
+			// @todo maybe also "type"
+			else
+			{
+				global $order;
+				fputs(STDERR, "PARSE ERROR: Invalid constant type ('$split[0]' in instrcution #$order)\n");
+				exit(21);
+			}
+
+			$this->value = $split[1];	// Watchout! Type "var" doesn't reach this line
 		}
 	}
 	
 	class LabelArgument extends Argument
 	{
-		protected function isValueValid($value)
+		protected function processValue($value)
 		{
-			return true;
-			// @todo
+			$this->type = "label";
+			return preg_match("/^[[:alpha:]_\-$%*][[:alnum:]_\-$%*]*$/", $value);
 		}
 	}
 	
 	class TypeArgument extends Argument
 	{
-		protected function isValueValid($value)
+		protected function processValue($value)
 		{
-			return true;
-			// @todo
+			$this->type = "type";
+			return ($value == "int" || $value == "string" ||$value == "bool");
 		}
 	}
 ?>

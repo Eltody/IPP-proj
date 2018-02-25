@@ -62,11 +62,19 @@
 		$opCode_A = $dom->createAttribute("opcode");
 		$instruction_E->appendChild($opCode_A);
 		$opCode_A->value = $instruction->getOpCode();
+		
+		// -- Argumments --
+		$arguments = $instruction->getArguments();
+		// - Arg1 node -		
+		if($arguments[0] == null)
+			continue;
+		$arg1_E = $dom->createElement("arg1");
+		$instruction_E->appendChild($arg1_E);
+		$arg1Text_E = $dom->createTextNode($arguments[0]);
+		$arg1_E->appendChild($arg1Text_E);		
 	}
 
 	$dom->save("php://stdout");
-
-	fputs(STDOUT, "====SUCCESSFUL END====\n");
 	exit(0);
 	
 	
@@ -74,9 +82,8 @@
 	class Instruction
 	{
 		private $opCode;
-		private $arg1;
-		private $arg2;
-		private $arg3;
+		private $arg = array();
+		
 		
 		public function __construct($line)
 		{
@@ -85,15 +92,27 @@
 			if($split == null)	// Whole line is a commentary
 				return;
 			
-			if(!$this->checkOpCode($split[0]))
+			// Set opCode and create objects for arguments
+			$this->setOpCode($split[0]);
+
+			// Check arguments count
+			$argCount = count($this->arg);
+			if($argCount+1 != count($split))
 			{
 				global $order;
-				fputs(STDERR, "ERROR: Invalid instruction (#$order: \"$split[0]\")\n");
+				fputs(STDERR, "ERROR: Too many arguments for instruction (#$order: \"$split[0]\")\n");	
 				exit(21);					
 			}
 			
-			$this->opCode = $split[0];
+			// Set values for invidual arguments			
+			for($i = 0; $i < $argCount; $i++)
+			{
+				$this->arg[$i]->setValue($split[$i+1]);
+			}
+			
+
 		}
+		
 		
 		private function split($line)
 		{
@@ -120,17 +139,90 @@
 			return $array;
 		}
 		
-		private function checkOpCode($opCode)
-		{
-			$legalOpCodes = array("MOVE", "CREATEFRAME", "PUSHFRAME", "POPFRAME", "DEFVAR", "CALL", "RETURN",
-			"PUSHS", "POPS", "SUB", "MUL", "IDIV", "LT", "GT", "EQ", "AND", "OR", "NOT", "INT2CHAR", "CHAR2INT",
-			"STRI2INT", "READ", "WRITE", "CONCAT", "STRLEN", "GETCHAR", "SETCHAR", "TYPE", "LABEL", "JUMP",
-			"JUMPIFEQ", "JUMPIFNEQ", "DPRINT", "BREAK");
-			
-			foreach($legalOpCodes as $legalOpCode)
-				if($opCode == $legalOpCode)
-					return true;
-			return false;
+		
+		private function setOpCode($opCode)
+		{			
+			switch($opCode)
+			{
+				// <var> <symb>
+				case "MOVE":
+				case "NOT":
+				case "INT2CHAR":
+				case "STRLEN":
+				case "TYPE":
+					$this->arg[0] = new VarArgument;
+					$this->arg[1] = new SymbArgument;
+				break;
+				
+				// none
+				case "CREATEFRAME":
+				case "PUSHFRAME":
+				case "POPFRAME":
+				case "RETURN":
+				case "BREAK":
+				break;
+				
+				// <var>
+				case "DEFVAR":
+				case "POPS":
+					$this->arg[0] = new VarArgument;
+				break;
+				
+				// <label>
+				case "CALL":
+				case "LABEL":
+				case "JUMP":
+					$this->arg[0] = new LabelArgument;
+				break;
+				
+				// <label> <symb> <symb>
+				case "JUMPIFEQ":
+				case "JUMPIFNEQ":
+					$this->arg[0] = new LabelArgument;
+					$this->arg[1] = new SymbArgument;
+					$this->arg[2] = new SymbArgument;
+				break;
+				
+				// <symb>
+				case "PUSHS":
+				case "WRITE":
+				case "DPRINT":
+					$this->arg[0] = new SymbArgument;
+				break;
+				
+				// <var> <symb> <symb>
+				case "ADD":
+				case "SUB":
+				case "MUL":
+				case "IDIV":
+				case "LT":
+				case "GT":
+				case "EQ":
+				case "AND":
+				case "OR":
+				case "STRI2INT":
+				case "CONCAT":
+				case "GETCHAR":
+				case "SETCHAR":
+					$this->arg[0] = new VarArgument;
+					$this->arg[1] = new SymbArgument;
+					$this->arg[2] = new SymbArgument;
+				break;
+				
+				// <var> <type>
+				case "READ":
+					$this->arg[0] = new VarArgument;
+					$this->arg[1] = new TypeArgument;
+				break;
+				
+				// Error
+				default:
+					global $order;
+					fputs(STDERR, "ERROR: Invalid instruction (#$order: \"$split[0]\")\n");
+					exit(21);	
+			}	
+			$this->opCode = $opCode;
+			return true;
 		}
 		
 		public function getOpCode()
@@ -142,6 +234,74 @@
 		{
 			fputs(STDERR, $this->opCode == null);
 			return $this->opCode == null;
+		}
+		
+		public function getArguments()
+		{
+			$return = array();
+			
+			foreach($this->arg as $current)
+				$return[] = $current->printValue();
+				
+			return $return;
+		}
+	}
+	
+	abstract class Argument
+	{
+		private $value;
+		
+		public function setValue($value)
+		{
+			if(!$this->isValueValid($value))
+			{
+				fputs(STDERR, "ERROR: Invalid argument");
+				exit(21);
+			}
+			
+			$this->value = $value;
+		}
+		
+		public function printValue()
+		{
+			return $this->value;
+		}
+		
+		abstract protected function isValueValid($value);
+	}
+	
+	class VarArgument extends Argument
+	{
+		protected function isValueValid($value)
+		{
+			return preg_match("/^(LF|TF|GF)@[[:alpha:]_\-$%*][[:alnum:]_\-$%*]*$/", $value);
+		}
+	}
+	
+	class SymbArgument extends Argument
+	{
+		protected function isValueValid($value)
+		{
+			return true;
+			// @todo
+		}
+	}
+	
+	class LabelArgument extends Argument
+	{
+		protected function isValueValid($value)
+		{
+			return true;
+			// @todo
+		}
+	}
+	
+	class TypeArgument extends Argument
+	{
+		protected function isValueValid($value)
+		{
+			return true;
+			// @todo
 		}
 	}
 ?>

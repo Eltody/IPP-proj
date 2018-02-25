@@ -6,20 +6,29 @@
 	 */
 
 
-	// Loading arguments
-	// @todo
+	// --- Loading arguments ---
+	if($argc != 1)
+	{
+		if($argc == 2 && $argv[1] == "--help")
+		{
+			fputs(STDOUT, "This script loads source code in IPPcode18 from standart input, checks\n");
+			fputs(STDOUT, "lexical and syntax correctness and prints XML representation of the program\n");
+			fputs(STDOUT, "on standart output\n");
+			exit(0);
+		}
+		
+		errorExit(10, "PARSER ERROR: Invalid parameters combination");	
+	}
 
 	
 	// --- Loading first line (header) ---
 	if(!$line = fgets(STDIN))
 	{
-		fputs(STDERR, "PARSE ERROR: No input\n"); // Error or success? @todo Ask on forum
-		exit(11);
+		errorExit(11, "PARSER ERROR: No input");
 	}
 	if(strtolower(trim($line)) != ".ippcode18")
 	{
-		fputs(STDERR, "PARSE ERROR: Invalid header\n");
-		exit(21);
+		errorExit(21, "PARSER ERROR: Invalid header");
 	}
 	
 	
@@ -28,12 +37,13 @@
 	$dom->formatOutput = true;	// Better formatting
 	
 	$program_E = $dom->createElement("program");
+	$program_E = $dom->appendChild($program_E);
+	
 	$language_A = $dom->createAttribute("language");
 	$language_A->value = "IPPcode18";
-	
-	$program_E = $dom->appendChild($program_E);
 	$program_E->appendChild($language_A);
 	
+
 	global $order;
 	$order = 1;
 
@@ -47,37 +57,36 @@
 		if($instruction->isEmpty())
 			continue;
 	
-		// -- Instruction node --
+		// -- Instruction element --
 		$instruction_E = $dom->createElement("instruction");
 		$program_E->appendChild($instruction_E);
 		
-		// -- Order node --
+		// -- Order attribute --
 		$order_A = $dom->createAttribute("order");
-		$instruction_E->appendChild($order_A);
 		$order_A->value = $order++;
+		$instruction_E->appendChild($order_A);
 		
-		
-		
-		// -- Opcode node --
+		// -- Opcode attribute --
 		$opCode_A = $dom->createAttribute("opcode");
-		$instruction_E->appendChild($opCode_A);
 		$opCode_A->value = $instruction->getOpCode();
+		$instruction_E->appendChild($opCode_A);
 		
-		// -- Arguments --
+		// -- Arg elements --
 		$argCount = $instruction->getArgumentCount();
 		for($i = 1; $i <= $argCount; $i++)
 		{
+			// - Arg element -
+			$arg_E = $dom->createElement("arg".$i);	
+			$instruction_E->appendChild($arg_E);	// e.g. <arg1>
 			
-			//$argValue = $instruction->getArgumentValue($i);
-			$arg_E = $dom->createElement("arg".$i);	// e.g. <arg1>
-			$instruction_E->appendChild($arg_E);
-			
-			$type_A = $dom->createAttribute("type");	// e.g. <arg1 type="var">
+			// - Type attribute -
+			$type_A = $dom->createAttribute("type");
 			$type_A->value = $instruction->getArgumentType($i);	
-			$arg_E->appendChild($type_A);
+			$arg_E->appendChild($type_A);	// e.g. <arg1 type="var">
 			
-			$arg_T = $dom->createTextNode($instruction->getArgumentValue($i)); // e.g. <arg1 type="var">LF@test
-			$arg_E->appendChild($arg_T);
+			// - Text node -
+			$arg_T = $dom->createTextNode($instruction->getArgumentValue($i));
+			$arg_E->appendChild($arg_T);	// e.g. <arg1 type="var">LF@test
 		}
 	}
 
@@ -85,7 +94,19 @@
 	exit(0);
 	
 	
-	// =========
+	// ===== Function declaration =====
+	/**
+	 * @brief Prints message to STDERR and exit script with specified return value
+	 * @param retVal	Return value
+	 * @param msg	Informative message
+	 */
+	function errorExit($retVal, $msg)
+	{
+		fputs(STDERR, "$msg\n");
+		exit($retVal);
+	}
+	
+	// ===== Class declaration =====
 	class Instruction
 	{
 		private $opCode;
@@ -107,8 +128,7 @@
 			if($this->argCount+1 != count($split))
 			{
 				global $order;
-				fputs(STDERR, "PARSE ERROR: Too many arguments for instruction (#$order: \"$split[0]\")\n");	
-				exit(21);					
+				errorExit(21, "PARSER ERROR: Too many arguments for instruction (#$order: \"$split[0]\")");					
 			}
 			
 			// Set values for invidual arguments			
@@ -118,7 +138,11 @@
 			}
 		}
 		
-		
+		/**
+		 * @brief Splits loaded line by white characters and removes commentary
+		 * @param line	Loaded line
+		 * @return Array of splitted parts without commentary
+		 */
 		private function split($line)
 		{
 			$array = preg_split("/[[:blank:]]+/", trim($line), 5);	// Split by spaces and tabs
@@ -144,7 +168,10 @@
 			return $array;
 		}
 		
-		
+		/**
+		 * @brief Sets operation code of the instruction, create empty argument objects and count number of arguments
+		 * @param opCode	Operation code of the instruction
+		 */
 		private function setOpCode($opCode)
 		{			
 			switch($opCode)
@@ -223,12 +250,10 @@
 				// Error
 				default:
 					global $order;
-					fputs(STDERR, "PARSE ERROR: Invalid instruction (#$order: \"$split[0]\")\n");
-					exit(21);	
+					errorExit(21, "PARSER ERROR: Invalid instruction (#$order: \"$split[0]\")");
 			}	
 			$this->opCode = $opCode;
 			$this->argCount = count($this->arg);
-			return true;
 		}
 		
 		public function getOpCode()
@@ -266,8 +291,7 @@
 		{
 			if(!$this->processValue($value))
 			{
-				fputs(STDERR, "PARSE ERROR: Invalid argument");
-				exit(21);
+				errorExit(21, "PARSER ERROR: Invalid argument");
 			}
 			
 			$this->value = $value;
@@ -310,8 +334,7 @@
 			// Check if explode is valid
 			if(count($split) != 2)
 			{
-				fputs(STDERR, "PARSE ERROR: Too many '@' characters in constant definition\n");
-				exit(21);
+				errorExit(21, "PARSER ERROR: Too many '@' characters in constant definition");
 			}
 			
 			// Check if different types are valid
@@ -319,7 +342,7 @@
 			{
 				if(!preg_match("/^-?\d+$/", $split[1]))
 				{
-					fputs(STDERR, "PARSE ERROR: Invalid characters in int constant\n");
+					errorExit(21, "PARSER ERROR: Invalid characters in int constant");
 					exit(21);
 				}
 				$this->type = "int";
@@ -328,8 +351,7 @@
 			{
 				if($split[1] != "true" || $split[1] != "false")
 				{
-					fputs(STDERR, "PARSE ERROR: Invalid characters in bool constant\n");
-					exit(21);
+					errorExit(21, "PARSER ERROR: Invalid characters in bool constant");
 				}
 				$this->type = "bool";
 			}
@@ -342,8 +364,7 @@
 			{
 				if(!preg_match("/^[[:alpha:]_\-$%*][[:alnum:]_\-$%*]*$/", $split[1]))
 				{
-					fputs(STDERR, "PARSE ERROR: Invalid characters in var\n");
-					exit(21);
+					errorExit(21, "PARSER ERROR: Invalid characters in var");
 				}				
 				$this->type = "var";
 				$this->value = $value;
@@ -353,8 +374,7 @@
 			else
 			{
 				global $order;
-				fputs(STDERR, "PARSE ERROR: Invalid constant type ('$split[0]' in instrcution #$order)\n");
-				exit(21);
+				errorExit(21, "PARSER ERROR: Invalid constant type ('$split[0]' in instrcution #$order)");
 			}
 
 			$this->value = $split[1];	// Watchout! Type "var" doesn't reach this line

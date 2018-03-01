@@ -1,0 +1,2 @@
+.IPPcode18 # ERROR: Not allowed escape squence
+WRITE string@\034

@@ -23,14 +23,12 @@
 	
 	// --- Loading first line (header) ---
 	if(!$line = fgets(STDIN))
-	{
 		errorExit(11, "PARSER ERROR: No input");
-	}
-	if(strtolower(trim($line)) != ".ippcode18")
-	{
+		
+	$line = strtolower(trim(preg_replace("/#.*$/", "", $line)));	// Remove commentary, white characters and lower string
+	if($line != ".ippcode18")
 		errorExit(21, "PARSER ERROR: Invalid header");
-	}
-	
+
 	
 	// --- XML beginning ---
 	$dom = new DomDocument("1.0", "UTF-8");
@@ -334,50 +332,71 @@
 			// Check if explode is valid
 			if(count($split) != 2)
 			{
-				errorExit(21, "PARSER ERROR: Too many '@' characters in constant definition");
+				errorExit(21, "PARSER ERROR: There must be one '@' characters in constant definition");
 			}
 			
 			// Check if different types are valid
-			if($split[0] == "int")
+			switch($split[0])
 			{
-				if(!preg_match("/^-?\d+$/", $split[1]))
-				{
-					errorExit(21, "PARSER ERROR: Invalid characters in int constant");
-					exit(21);
-				}
-				$this->type = "int";
+				case "int":
+					if(!preg_match("/^-?\d+$/", $split[1]))
+					{
+						errorExit(21, "PARSER ERROR: Invalid characters in int constant");
+						exit(21);
+					}
+					break;
+					
+				case "bool":
+					if($split[1] != "true" || $split[1] != "false")
+					{
+						errorExit(21, "PARSER ERROR: Invalid characters in bool constant");
+					}
+					break;
+					
+				case "string":	
+					/* Regex legend
+					 * ============
+					 * (?!(			// Ignore cases when
+					 * \\\\0[012][0-9]	// From \000 to \029
+					 * |			// Or
+					 * \\\\03[0125]		// \030 \031 \032 \035 
+					 * |			// Or
+					 * \\\\092		// \092
+					 * ))			// End ignore cases
+					 * [[:blank:]\\\\#]	// Search for white chars, \ or #
+					 * =============
+					 * \\ are for regex and another \\ for php	@see http://bit.ly/2GUJ7AM
+					*/ 
+					
+					if($split[1] != "")	// Ignore empty string
+						if(preg_match("/(?!(\\\\0[012][0-9]|\\\\03[0125]|\\\\092))[[:blank:]\\\\#]/", $split[1]))	// Search for illegal characters
+						{
+							global $order;
+							errorExit(21, "PARSER ERROR: Invalid characters in string (instrcution #$order)");
+						}	
+					break;
+					
+				case "LF":
+				case "TF":
+				case "GF":
+					if(!preg_match("/^[[:alpha:]_\-$%*][[:alnum:]_\-$%*]*$/", $split[1]))
+					{
+						global $order;
+						errorExit(21, "PARSER ERROR: Invalid characters in var (instrcution #$order)");
+					}				
+					$split[0] = "var";	// "var" instead of e.g. "TF"
+					$split[1] = $value;	// Because we need to save whole "LF@abc" not just "abc"
+					break;
+					
+				default:
+					global $order;
+					errorExit(21, "PARSER ERROR: Invalid constant type ('$split[0]' in instrcution #$order)");
+					break;
 			}
-			else if($split[0] == "bool")
-			{
-				if($split[1] != "true" || $split[1] != "false")
-				{
-					errorExit(21, "PARSER ERROR: Invalid characters in bool constant");
-				}
-				$this->type = "bool";
-			}
-			else if($split[0] == "string")
-			{
-				// @todo waiting on reply on the forum
-				$this->type = "string";
-			}
-			else if($split[0] == "LF" ||$split[0] == "TF" ||$split[0] == "GF")
-			{
-				if(!preg_match("/^[[:alpha:]_\-$%*][[:alnum:]_\-$%*]*$/", $split[1]))
-				{
-					errorExit(21, "PARSER ERROR: Invalid characters in var");
-				}				
-				$this->type = "var";
-				$this->value = $value;
-				return;
-			}
-			// @todo maybe also "type"
-			else
-			{
-				global $order;
-				errorExit(21, "PARSER ERROR: Invalid constant type ('$split[0]' in instrcution #$order)");
-			}
-
-			$this->value = $split[1];	// Watchout! Type "var" doesn't reach this line
+			
+			// Save the values
+			$this->type = $split[0];
+			$this->value = $split[1];	
 		}
 	}
 	

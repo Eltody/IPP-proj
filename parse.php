@@ -88,6 +88,7 @@
 		}
 	}
 
+	// --- Print XML result and end ---
 	$dom->save("php://stdout");
 	exit(0);
 	
@@ -118,7 +119,7 @@
 			
 			if($split == null)	// Whole line is a commentary
 				return;
-			
+
 			// Set opCode and create objects for arguments
 			$this->setOpCode($split[0]);
 
@@ -143,7 +144,7 @@
 		 */
 		private function split($line)
 		{
-			$array = preg_split("/[[:blank:]]+/", trim($line), 5);	// Split by spaces and tabs
+			$array = preg_split("/[[:blank:]]+/", trim($line), 5, PREG_SPLIT_NO_EMPTY);	// Split by spaces and tabs
 			
 			// Check for commentary
 			$count = count($array);
@@ -171,7 +172,9 @@
 		 * @param opCode	Operation code of the instruction
 		 */
 		private function setOpCode($opCode)
-		{			
+		{
+			$opCode = strtoupper($opCode);
+						
 			switch($opCode)
 			{
 				// <var> <symb>
@@ -248,7 +251,7 @@
 				// Error
 				default:
 					global $order;
-					errorExit(21, "PARSER ERROR: Invalid instruction (#$order: \"$split[0]\")");
+					errorExit(21, "PARSER ERROR: Invalid instruction (#$order: \"$opCode\")");
 			}	
 			$this->opCode = $opCode;
 			$this->argCount = count($this->arg);
@@ -289,7 +292,7 @@
 		{
 			if(!$this->processValue($value))
 			{
-				errorExit(21, "PARSER ERROR: Invalid argument");
+				errorExit(21, "PARSER ERROR: Invalid argument (type is \"".$this->type."\")");
 			}
 			
 			$this->value = $value;
@@ -313,7 +316,7 @@
 		protected function processValue($value)
 		{
 			$this->type = "var";
-			return preg_match("/^(LF|TF|GF)@[[:alpha:]_\-$%*][[:alnum:]_\-$%*]*$/", $value);
+			return preg_match("/^(LF|TF|GF)@[[:alpha:]_\-$&%*][[:alnum:]_\-$&%*]*$/", $value);
 		}
 	}
 	
@@ -327,51 +330,49 @@
 		
 		protected function processValue($value)
 		{
-			$split = explode("@", $value, 3);
+			$split = explode("@", $value, 2);
 			
 			// Check if explode is valid
-			if(count($split) != 2)
+			if(count($split) < 2)
 			{
-				errorExit(21, "PARSER ERROR: There must be one '@' characters in constant definition");
+				print($value);
+				errorExit(21, "PARSER ERROR: There must be a '@' character in constant definition'");
 			}
 			
 			// Check if different types are valid
 			switch($split[0])
 			{
 				case "int":
-					if(!preg_match("/^-?\d+$/", $split[1]))
+					if(!preg_match("/^[-+]?\d+$/", $split[1]))
 					{
-						errorExit(21, "PARSER ERROR: Invalid characters in int constant");
+						errorExit(21, "PARSER ERROR: Invalid characters in int constant ('$split[1]')");
 						exit(21);
 					}
 					break;
 					
 				case "bool":
-					if($split[1] != "true" || $split[1] != "false")
+					if($split[1] != "true" && $split[1] != "false")
 					{
-						errorExit(21, "PARSER ERROR: Invalid characters in bool constant");
+						errorExit(21, "PARSER ERROR: Invalid characters in bool constant (found: '$split[1]')");
 					}
 					break;
 					
 				case "string":	
 					/* Regex legend
 					 * ============
-					 * (?!(			// Ignore cases when
-					 * \\\\0[012][0-9]	// From \000 to \029
-					 * |			// Or
-					 * \\\\03[0125]		// \030 \031 \032 \035 
-					 * |			// Or
-					 * \\\\092		// \092
-					 * ))			// End ignore cases
+					 * (?!			// Ignore cases when
+					 * \\\\0[012][0-9]	// From \000 to \099
+					 * )			// End ignore cases
 					 * [[:blank:]\\\\#]	// Search for white chars, \ or #
 					 * =============
-					 * \\ are for regex and another \\ for php	@see http://bit.ly/2GUJ7AM
+					 * \\\\ represents '\'
 					*/ 
 					
 					if($split[1] != "")	// Ignore empty string
-						if(preg_match("/(?!(\\\\0[012][0-9]|\\\\03[0125]|\\\\092))[[:blank:]\\\\#]/", $split[1]))	// Search for illegal characters
+						if(preg_match("/(?!\\\\[0-9]{3})[[:blank:]\\\\#]/", $split[1]))	// Search for illegal characters
 						{
 							global $order;
+							echo $split[1]."\n";
 							errorExit(21, "PARSER ERROR: Invalid characters in string (instrcution #$order)");
 						}	
 					break;
@@ -379,7 +380,7 @@
 				case "LF":
 				case "TF":
 				case "GF":
-					if(!preg_match("/^[[:alpha:]_\-$%*][[:alnum:]_\-$%*]*$/", $split[1]))
+					if(!preg_match("/^[[:alpha:]_\-$&%*][[:alnum:]_\-$&%*]*$/", $split[1]))
 					{
 						global $order;
 						errorExit(21, "PARSER ERROR: Invalid characters in var (instrcution #$order)");
@@ -405,7 +406,7 @@
 		protected function processValue($value)
 		{
 			$this->type = "label";
-			return preg_match("/^[[:alpha:]_\-$%*][[:alnum:]_\-$%*]*$/", $value);
+			return preg_match("/^[[:alpha:]_\-$&%*][[:alnum:]_\-$&%*]*$/", $value);
 		}
 	}
 	

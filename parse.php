@@ -7,27 +7,19 @@
 
 
 	// --- Loading arguments ---
-	if($argc != 1)
-	{
-		if($argc == 2 && $argv[1] == "--help")
-		{
-			fputs(STDOUT, "This script loads source code in IPPcode18 from standart input, checks\n");
-			fputs(STDOUT, "lexical and syntax correctness and prints XML representation of the program\n");
-			fputs(STDOUT, "on standart output\n");
-			exit(0);
-		}
-		
-		errorExit(10, "PARSER ERROR: Invalid parameters combination");	
-	}
-
+	$stats = loadArguments();
+	
 	
 	// --- Loading first line (header) ---
 	if(!$line = fgets(STDIN))
 		errorExit(11, "PARSER ERROR: No input");
 		
-	$line = strtolower(trim(preg_replace("/#.*$/", "", $line)));	// Remove commentary, white characters and lower string
+	$line = strtolower(trim(preg_replace("/#.*$/", "", $line, -1, $found)));	// Remove commentary, white characters and lower string
 	if($line != ".ippcode18")
 		errorExit(21, "PARSER ERROR: Invalid header");
+
+	if($found)
+		$stats->addComment();
 
 	
 	// --- XML beginning ---
@@ -54,6 +46,9 @@
 		// -- Skipping commentary --
 		if($instruction->isEmpty())
 			continue;
+			
+		// -- Update stats --
+		$stats->addInstruction();
 	
 		// -- Instruction element --
 		$instruction_E = $dom->createElement("instruction");
@@ -89,6 +84,7 @@
 	}
 
 	// --- Print XML result and end ---
+	$stats->writeStats();
 	$dom->save("php://stdout");
 	exit(0);
 	
@@ -103,6 +99,43 @@
 	{
 		fputs(STDERR, "$msg\n");
 		exit($retVal);
+	}
+	
+	function loadArguments()
+	{
+		// --- Read arguments ---
+		$options = array("help", "stats:", "loc", "comments");
+		$usedOptions = getopt(null, $options);	
+		
+		
+		// --- Process --help option ---
+		global $argc;
+		if(isset($usedOptions["help"]))	// If --help is used
+		{
+			if($argc == 2)	// If its the only argument used
+			{
+				fputs(STDOUT, "This script loads source code in IPPcode18 from standart input, checks\n");
+				fputs(STDOUT, "lexical and syntax correctness and prints XML representation of the program\n");
+				fputs(STDOUT, "on standart output\n");
+				exit(0);
+			}
+			else
+				errorExit(10, "Option --help can't be combinated with other arguments");
+		}
+		
+		
+		// --- Check stats options ---
+		$usedOptionsCount = count($usedOptions);
+		
+		if($argc != $usedOptionsCount+1 || $usedOptionsCount < 1 || $usedOptionsCount > 3)
+			errorExit(10, "Too many or few arguments used");
+		
+		if(!isset($usedOptions["stats"]))
+			errorExit(10, "Option --stats is missing");
+		
+		
+		// --- Create stats object ---
+		return new Stats($usedOptions);
 	}
 	
 	// ===== Class declaration =====
@@ -154,6 +187,9 @@
 				$array[$i] = @preg_replace("/#.*/", "", $array[$i], 1, $found);	// Search (and earse) a commentary (char '#') 
 				if($found)
 				{
+					global $stats;
+					$stats->addComment();	// Update stats
+					
 					$length = ($array[$i] == "" ? $i : $i+1);	// New length of the array
 					
 					if($length == 0)
@@ -416,6 +452,83 @@
 		{
 			$this->type = "type";
 			return ($value == "int" || $value == "string" ||$value == "bool");
+		}
+	}
+	
+	class Stats
+	{
+		private $file;
+		private $instructionCount = 0;
+		private $instructionEnabled = false;
+		private $commentCount = 0;
+		private $commentEnabled = false;
+		private $first;	// Define if instuctions or comments will be printed at first line
+		
+		public function __construct($array)
+		{
+			foreach($array as $key => $value)
+			{
+				switch($key)
+				{
+					case "stats":
+						$this->file = $value;
+						break;
+					
+					case "comments":
+						if($this->first == null)
+							$this->first = "comment";
+						$this->commentEnabled = true;
+					break;
+					case "loc":
+						if($this->first == null)
+							$this->first = "instruction";
+						$this->instructionEnabled = true;
+					break;
+				}
+			}
+		}
+		
+		public function addInstruction()
+		{
+			if($this->instructionEnabled == true)
+				$this->instructionCount++;
+		}
+		public function addComment()
+		{
+			if($this->commentEnabled == true)
+				$this->commentCount++;
+		}
+		
+		public function writeStats()
+		{
+			if($this->instructionEnabled == true || $this->commentEnabled == true)
+			{
+				$file = fopen($this->file, "w");
+				
+				if(!$file)
+					errorExit(12, "Could't open stats file");
+
+				if($this->first == "comment")
+				{
+					$content = $this->commentCount;
+					
+					if($this->instructionEnabled == true)
+						$content .= "\n".$this->instructionCount;
+				}
+				else
+				{
+					$content = $this->instructionCount;
+					
+					if($this->commentEnabled == true)
+						$content .= "\n".$this->commentCount;
+				}
+
+
+				$written = fwrite($file, $content);
+				if(!$written)
+					errorExit(12, "Could't write to stats file");
+				fclose($file);
+			}		
 		}
 	}
 ?>

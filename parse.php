@@ -127,12 +127,14 @@
 		// --- Check stats options ---
 		$usedOptionsCount = count($usedOptions);
 		
-		if($argc != $usedOptionsCount+1 || $usedOptionsCount < 1 || $usedOptionsCount > 3)
-			errorExit(10, "Too many or few arguments used");
-		
-		if(!isset($usedOptions["stats"]))
-			errorExit(10, "Option --stats is missing");
-		
+		if($argc > 1)
+		{
+			if($argc != $usedOptionsCount+1 || $usedOptionsCount > 3)
+				errorExit(10, "Too many or few arguments used");
+			
+			if(!isset($usedOptions["stats"]))
+				errorExit(10, "Option --stats is missing");
+		}
 		
 		// --- Create stats object ---
 		return new Stats($usedOptions);

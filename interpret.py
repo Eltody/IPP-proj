@@ -92,15 +92,17 @@ class GlobalFrame:
 			errorExit(ERROR_IDK, "Variable '{0}' already exist in global frame".format(name))
 		self.frame[name] = None;
 		
-		logger.debug("Variable {0} added to GF".format(name))
-		
-	def set(self, name, value):
+	def set(self, name, value): # @todo Maybe not value but Instruction object? To be sure about the type
 		if name not in self.frame:
-			sys.exit(ERROR_IDK)	# Variable does not exist
+			errorExit(ERROR_IDK, "Coudn't set value to non-existing variable '{0}'".format(name))
 			
 		# @todo Check types
 		self.frame[name] = value;
 		
+	def get(self, name):
+		if name not in self.frame:
+			errorExit(ERROR_IDK, "Variable '{0}' does not exist in global frame".format(name))	# @todo Die or retuern None??
+		return self.frame[name];
 		
 class ValueCreator:
 	def create(self, typeAndValue):
@@ -178,6 +180,8 @@ class Interpret():
 			self.DEFVAR(instruction)
 		elif instruction == "ADD":
 			self.ADD(instruction)
+		elif instruction == "WRITE":
+			self.WRITE(instruction)
 		else:	# @todo more instructions
 			errorExit(ERROR_IDK, "Cannot execute unkown instruction")
 			
@@ -186,7 +190,7 @@ class Interpret():
 			errorExit(ERROR_IDK, "Invalids argument for DEFVAR (missing, too many or wrong type)")
 			
 		if re.search(r"^GF@", instruction.args[0].getValue()):
-			self.globalFrame.add(instruction.args[0].getValue()[2:])	# @todo universal frame manager
+			self.globalFrame.add(instruction.args[0].getValue()[3:])	# @todo universal frame manager
 		else:	# @todo more frames
 			errorExit(ERROR_IDK, "Unkown frame in instruction DEFVAR")
 		
@@ -197,8 +201,19 @@ class Interpret():
 		instruction.args[2].getType() != "int"):	
 			errorExit(ERROR_IDK, "Invalids argument for ADD (missing, too many or wrong type)")
 			
-		self.globalFrame.set(instruction.args[0].getValue()[2:], instruction.args[1].getValue()+instruction.args[2].getValue())	# @todo universal frame manager
+		self.globalFrame.set(instruction.args[0].getValue()[3:], instruction.args[1].getValue()+instruction.args[2].getValue())	# @todo universal frame manager
+	
+	def WRITE(self, instruction):
+		if instruction.argCount != 1:
+			errorExit(ERROR_IDK, "Invalids argument for ADD (missing or too many)")
 			
+		if instruction.args[0].getType() == "var":
+			varName = instruction.args[0].getValue()[3:] 	# @todo universal frame manager
+			print(self.globalFrame.get(varName))
+		elif instruction.args[0].getType() == "str":
+			print(instruction.args[0].getValue())
+		else:
+			errorExit(ERROR_IDK, "Invalids argument for ADD (wrong type)")	# @todo It should print all types (maybe except Label) + bool cannot be printed by python print()
 		
 	#def decodeInstruction(self, instrNode):  # @todo Here on in interpret?
 		# Check if instruction order is right 
@@ -221,7 +236,7 @@ class Instruction():
 	
 	
 	def decodeOpCode(self, opCode):
-		if opCode == "DEFVAR":
+		if opCode == "DEFVAR" or opCode == "WRITE":
 			self.argCount = 1
 		elif opCode == "ADD":
 			self.argCount = 3

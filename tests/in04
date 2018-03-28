@@ -2,4 +2,3 @@
 DEFVAR GF@aaa
 ADD GF@aaa int@12 int@13
 WRITE GF@aaa
-LABEL end

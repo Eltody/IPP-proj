@@ -1,0 +1,4 @@
+.IPPcode18
+DEFVAR GF@aaa
+MOVE GF@aaa int@42
+WRITE GF@aaa

@@ -60,6 +60,7 @@ def main():
 		
 		
 	# --- Processing instructions ---
+	global interpret
 	interpret = Interpret()
 	interpret.loadInstructions(root)
 		
@@ -103,7 +104,8 @@ class GlobalFrame:
 		if name not in self.frame:
 			errorExit(ERROR_IDK, "Variable '{0}' does not exist in global frame".format(name))	# @todo Die or retuern None??
 		return self.frame[name];
-		
+
+''' # Won't use this anymore?		
 class ValueCreator:
 	def create(self, typeAndValue):
 		split = typeAndValue.split("@", 1)	# Divide into two elements by char '@'
@@ -122,7 +124,7 @@ class ValueCreator:
 			return IntValue()
 		else:
 			errorExit(ERROR_IDK, "Invalid value type")
-			
+'''			
 			
 			
 	
@@ -161,7 +163,7 @@ class Argument():
 class Interpret():
 	def __init__(self):
 		order = 1
-		valueCreator = ValueCreator()
+		#valueCreator = ValueCreator()
 		self.globalFrame = GlobalFrame()
 		
 	def loadInstructions(self, root):
@@ -173,47 +175,13 @@ class Interpret():
 				logger.debug("{0} {1} {2}".format(arg.tag, arg.attrib,arg.text))
 			
 			instruction = Instruction(instrNode)
-			self.execute(instruction)
+			instruction.execute()
 			
-	def execute(self, instruction):
-		if instruction == "DEFVAR":
-			self.DEFVAR(instruction)
-		elif instruction == "ADD":
-			self.ADD(instruction)
-		elif instruction == "WRITE":
-			self.WRITE(instruction)
-		else:	# @todo more instructions
-			errorExit(ERROR_IDK, "Cannot execute unkown instruction")
-			
-	def DEFVAR(self, instruction):
-		if instruction.argCount != 1 or instruction.args[0].getType() != "var":
-			errorExit(ERROR_IDK, "Invalids argument for DEFVAR (missing, too many or wrong type)")
-			
-		if re.search(r"^GF@", instruction.args[0].getValue()):
-			self.globalFrame.add(instruction.args[0].getValue()[3:])	# @todo universal frame manager
-		else:	# @todo more frames
-			errorExit(ERROR_IDK, "Unkown frame in instruction DEFVAR")
-		
-	def ADD(self, instruction):
-		if (instruction.argCount != 3 or
-		instruction.args[0].getType() != "var" or
-		instruction.args[1].getType() != "int" or
-		instruction.args[2].getType() != "int"):	
-			errorExit(ERROR_IDK, "Invalids argument for ADD (missing, too many or wrong type)")
-			
-		self.globalFrame.set(instruction.args[0].getValue()[3:], instruction.args[1].getValue()+instruction.args[2].getValue())	# @todo universal frame manager
-	
-	def WRITE(self, instruction):
-		if instruction.argCount != 1:
-			errorExit(ERROR_IDK, "Invalids argument for ADD (missing or too many)")
-			
-		if instruction.args[0].getType() == "var":
-			varName = instruction.args[0].getValue()[3:] 	# @todo universal frame manager
-			print(self.globalFrame.get(varName))
-		elif instruction.args[0].getType() == "str":
-			print(instruction.args[0].getValue())
-		else:
-			errorExit(ERROR_IDK, "Invalids argument for ADD (wrong type)")	# @todo It should print all types (maybe except Label) + bool cannot be printed by python print()
+	# --- Instrcution MOVE ---
+	#def MOVE(self, instruction):
+#		if instruction.argCount != 3 or
+#		:
+#			errorExit(ERROR_IDK, "Invalids argument for WRITE (missing or too many)");			
 		
 	#def decodeInstruction(self, instrNode):  # @todo Here on in interpret?
 		# Check if instruction order is right 
@@ -231,38 +199,85 @@ class Instruction():
 		# @todo here shuld be order chceck
 		
 		
-		self.decodeOpCode(node.attrib["opcode"]) # @todo What does happen when there is no opcode attribut?
-		self.decodeArguments(node)
-	
-	
-	def decodeOpCode(self, opCode):
-		if opCode == "DEFVAR" or opCode == "WRITE":
-			self.argCount = 1
-		elif opCode == "ADD":
-			self.argCount = 3
-		else:
-			errorExit(ERROR_IDK, "Wrong opcode")
-		
-		self.args = []
-		self.opCode = opCode
+		############################self.decodeOpCode(node.attrib["opcode"]) # @todo What does happen when there is no opcode attribut?
+		self.opCode = node.attrib["opcode"]	
+		self.args = self.loadArguments(node)
+		self.argCount = len(self.args)
 		
 		
-	def decodeArguments(self, instrNode):
-		if len(instrNode) != self.argCount:
-			errorExit(ERROR_IDK, "Expected different amount of arguments")
-		
-		i = 0	
+	def loadArguments(self, instrNode):	
+		args = []
+		argIndex = 0	
 		for argNode in instrNode:
-			if argNode.tag != "arg{0}".format(i+1):
-				errorExit(ERROR_IDK, "Wrong node loaded (Expected arg{0})".format(i+1))
-
+			if argNode.tag != "arg{0}".format(argIndex+1):
+				errorExit(ERROR_IDK, "Wrong node loaded (Expected arg{0})".format(argIndex+1))
 		
-			self.args.append(Argument(argNode.attrib["type"], argNode.text))
-			i = i+1
+			args.append(Argument(argNode.attrib["type"], argNode.text))
+			argIndex = argIndex+1
+		return(args)
+	
+	def checkArguments(self, *expectedArgs):
+		# --- Checking arguments count ---
+		if self.argCount != len(expectedArgs):
+			errorExit(ERROR_IDK, "Invalid argument count")
 			
-	def __eq__(self, other):
-		if self.opCode == other:
-			return True
-		return False
+		# --- Checking arguments type ---
+		i = 0;
+		for arg in self.args: # Check every argument
+			argType = arg.getType()	# Saved argument's type
+			if type(expectedArgs[i]) == str:	# Only one type is allowed
+				if argType != expectedArgs[i]:
+					errorExit(ERROR_IDK, "Invalid argument type")
+			elif type(expectedArgs[i]) == list:	# More types are allowed
+				if argType not in expectedArgs[i]:	# Check if used argument has one of expected types
+					errorExit(ERROR_IDK, "Invalid argument type")
+			else:	# Wrong method parameters
+				errorExit(ERROR_IDK, "Illegal usage of Instruction.checkArguments()")
+			i = i+1
+	
+	def execute(self):
+		if self.opCode == "DEFVAR":
+			self.DEFVAR()
+		elif self.opCode == "ADD":
+			self.ADD()
+		elif self.opCode == "WRITE":
+			self.WRITE()
+	#	elif instruction == "MOVE":
+	#		self.MOVE()
+		else:	# @todo more instructions
+			errorExit(ERROR_IDK, "Unkown instruction")
+			
+			
+	#def __eq__(self, other): Dont need this anymore
+	#	if self.opCode == other:
+	#		return True
+	#	return False
+	
+	
+		
+	# --- Instrcution DEFVAR ---
+	def DEFVAR(self):
+		self.checkArguments("var")
+			
+		if re.search(r"^GF@", self.args[0].getValue()):
+			interpret.globalFrame.add(self.args[0].getValue()[3:])	# @todo universal frame manager
+		else:	# @todo more frames
+			errorExit(ERROR_IDK, "Unkown frame in instruction DEFVAR")
+		
+	# --- Instrcution ADD ---
+	def ADD(self):
+		self.checkArguments("var", "int", "int") # @todo <var> <symb> <symb>
+			
+		interpret.globalFrame.set(self.args[0].getValue()[3:], self.args[1].getValue()+self.args[2].getValue())	# @todo universal frame manager
+	
+	# --- Instrcution WRITE ---
+	def WRITE(self):
+		self.checkArguments(["var", "str"])
+	
+		if self.args[0].getType() == "var":
+			varName = self.args[0].getValue()[3:] 	# @todo universal frame manager
+			print(interpret.globalFrame.get(varName))
+		elif self.args[0].getType() == "str":
+			print(self.args[0].getValue())
 		
 main()

@@ -1,0 +1,2 @@
+.IPPcode18 # Dangerous XML characters
+WRITE string@<,>,&

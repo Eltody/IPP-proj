@@ -153,12 +153,24 @@ class Argument():
 		self.argType = inType
 	
 	def getValue(self):
-		return self.value
+		'''Returns actual value, even if used on variable'''
+		if self.argType == "var":
+			value = interpret.globalFrame.get(self.getName())
+			if value is None:
+				errorExit(ERROR_MISSINGVALUE, "Tried to read uninitialised variable") # Error 56
+			return value
+		else:
+			return self.value
 		
 	def getType(self):
 		return self.argType
-	
 		
+	def getName(self):
+		'''Returns name of variable without "GF@"'''
+		if self.argType == "var":
+			return self.value[3:]
+		else:
+			errorExit(ERROR_IDK, "Can't use getName() on non-variable")		
 	
 class Interpret():
 	def __init__(self):
@@ -177,19 +189,6 @@ class Interpret():
 			instruction = Instruction(instrNode)
 			instruction.execute()
 			
-	# --- Instrcution MOVE ---
-	#def MOVE(self, instruction):
-#		if instruction.argCount != 3 or
-#		:
-#			errorExit(ERROR_IDK, "Invalids argument for WRITE (missing or too many)");			
-		
-	#def decodeInstruction(self, instrNode):  # @todo Here on in interpret?
-		# Check if instruction order is right 
-#		if "order" not in instrNode.attrib or int(instrNode.attrib["order"]) != order:
-#			errorExit(ERROR_STRUCTURE, "Invalid order value")
-#		order = order+1
-		
-	#def checkOperands(self):
 	
 class Instruction():
 	def __init__(self, node):
@@ -199,7 +198,6 @@ class Instruction():
 		# @todo here shuld be order chceck
 		
 		
-		############################self.decodeOpCode(node.attrib["opcode"]) # @todo What does happen when there is no opcode attribut?
 		self.opCode = node.attrib["opcode"]	
 		self.args = self.loadArguments(node)
 		self.argCount = len(self.args)
@@ -216,6 +214,7 @@ class Instruction():
 			argIndex = argIndex+1
 		return(args)
 	
+	
 	def checkArguments(self, *expectedArgs):
 		# --- Checking arguments count ---
 		if self.argCount != len(expectedArgs):
@@ -224,16 +223,29 @@ class Instruction():
 		# --- Checking arguments type ---
 		i = 0;
 		for arg in self.args: # Check every argument
+			# -- Replacing <symb> --
+			if expectedArgs[i] == "symb":
+				expectedArgs[i] = ["int", "bool", "string", "var"]
+			
+			
 			argType = arg.getType()	# Saved argument's type
-			if type(expectedArgs[i]) == str:	# Only one type is allowed
+			
+			# -- Only one allowed type --
+			if type(expectedArgs[i]) == str:
 				if argType != expectedArgs[i]:
 					errorExit(ERROR_IDK, "Invalid argument type")
-			elif type(expectedArgs[i]) == list:	# More types are allowed
+					
+			# -- More allowed types --
+			elif type(expectedArgs[i]) == list:
 				if argType not in expectedArgs[i]:	# Check if used argument has one of expected types
 					errorExit(ERROR_IDK, "Invalid argument type")
-			else:	# Wrong method parameters
+					
+			# -- Wrong method parameters --
+			else:
 				errorExit(ERROR_IDK, "Illegal usage of Instruction.checkArguments()")
+				
 			i = i+1
+	
 	
 	def execute(self):
 		if self.opCode == "DEFVAR":
@@ -242,8 +254,8 @@ class Instruction():
 			self.ADD()
 		elif self.opCode == "WRITE":
 			self.WRITE()
-	#	elif instruction == "MOVE":
-	#		self.MOVE()
+		elif self.opCode == "MOVE":
+			self.MOVE()
 		else:	# @todo more instructions
 			errorExit(ERROR_IDK, "Unkown instruction")
 			
@@ -259,25 +271,31 @@ class Instruction():
 	def DEFVAR(self):
 		self.checkArguments("var")
 			
-		if re.search(r"^GF@", self.args[0].getValue()):
-			interpret.globalFrame.add(self.args[0].getValue()[3:])	# @todo universal frame manager
+		if re.search(r"^GF@", self.args[0].value):	# Using .value instead of getValue because var is not yet in frame
+			interpret.globalFrame.add(self.args[0].getName())	# @todo universal frame manager
 		else:	# @todo more frames
 			errorExit(ERROR_IDK, "Unkown frame in instruction DEFVAR")
 		
 	# --- Instrcution ADD ---
 	def ADD(self):
-		self.checkArguments("var", "int", "int") # @todo <var> <symb> <symb>
+		self.checkArguments("var", ["int", "var"], ["int", "var"])
+		
+		# @todo check if value in var is int number
 			
-		interpret.globalFrame.set(self.args[0].getValue()[3:], self.args[1].getValue()+self.args[2].getValue())	# @todo universal frame manager
+		result = self.args[1].getValue() + self.args[2].getValue()	
+			
+		interpret.globalFrame.set(self.args[0].getName(), result)	# @todo universal frame manager
 	
 	# --- Instrcution WRITE ---
 	def WRITE(self):
-		self.checkArguments(["var", "str"])
+		self.checkArguments(["var", "str"])  # @todo <symb>
 	
-		if self.args[0].getType() == "var":
-			varName = self.args[0].getValue()[3:] 	# @todo universal frame manager
-			print(interpret.globalFrame.get(varName))
-		elif self.args[0].getType() == "str":
-			print(self.args[0].getValue())
+		print(self.args[0].getValue())
+
+	# --- Instrcution MOVE ---
+	def MOVE(self):
+		self.checkArguments("var", "int")  # @todo <var> <symb>
+	
+		interpret.globalFrame.set(self.args[0].getName(), self.args[1].getValue())
 		
 main()

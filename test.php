@@ -131,31 +131,31 @@
 			
 			// --- Check .in file ---
 			exec("php5.6 ".$this->arguments->parsePath." <\"$path.src\" >\"$path.tmp.in\"");
-			exec("diff -q \"$path.in\" \"$path.tmp.in\"", $diff);
+			exec("diff -q \"$path.in\" \"$path.tmp.in\"", $dump, $diff);
 			
-			if($diff != NULL)
-				$in = "NOK";
-			else
+			if($diff == 0)
 				$in = "OK";
-			
+			else
+				$in = "NOK";
+			unset($diff);
 			
 			// --- Check .rc file ---	
 			exec("python3.6 ".$this->arguments->interpretPath." --source=\"$path.tmp.in\" >\"$path.tmp.out\"");
-			exec("echo $? | diff -q - \"$path.rc\"", $diff);
-			if($diff != NULL)
+			exec("echo $? | diff --ignore-all-space -q - \"$path.rc\"", $dump, $diff);	
+			if($diff == 0)
+				$rc = "OK";
+			else
 				$rc = "NOK";
-			else
-				$rc = "OK";			 
+	 
+			unset($diff);
 			 
-			 
-			// --- Check .out file ---	
-			exec("diff -q \"$path.out\" \"$path.tmp.out\"", $diff);
-			
-			if($diff != NULL)
-				$out = "NOK";
-			else
+			// --- Check .out file ---
+			exec("diff -q \"$path.out\" \"$path.tmp.out\"", $dump, $diff);
+
+			if($diff == 0)
 				$out = "OK";
-				
+			else
+				$out = "NOK";
 				
 			// --- Delete temporary files ---
 			unlink("$path.tmp.in");
@@ -163,7 +163,7 @@
 				
 				
 			// --- Save results ---
-			$this->results[$folderID][] = array($name, $in, $rc, $out);
+			$this->results[$folderID][] = array($name, $in, $out, $rc);
 			$this->folders[$folderID]["total"]++;
 			if($in == "OK" && $out == "OK" && $rc == "OK")
 				$this->folders[$folderID]["passed"]++;

@@ -73,6 +73,10 @@
 		
 		private function scan($dir)
 		{	
+			// --- Check if folder exists ---
+			if(!file_exists($dir))
+				return;
+			
 			// --- Save information about folder ---
 			$folderID = count($this->folders);
 			$this->folders[$folderID]["name"] = $dir;
@@ -167,12 +171,28 @@
 		
 		public function printResults()
 		{
+			// --- Check if some folder was scanned ---
+			if(count($this->folders) == 0)
+			{
+				print("Test folder opening wasn't successful\n>");
+				return;
+			}
+			
 			$folderID = 0;
 			foreach($this->folders as $dir)
 			{
 ?>
+			<p>
 				<div class="folder">
 					<h2>Folder "<?php echo $dir["name"]; ?>" (passed: <?php echo $dir["passed"]."/".$dir["total"]; ?>)</h2>
+<?php
+				if(!isset($this->results[$folderID]))
+				{
+					print("No tests found in this folder\n</div>\n");
+					$folderID++;
+					continue;
+				}
+?>					
 					<table>
 						<tr>
 							<th>Test name</th>
@@ -181,20 +201,22 @@
 							<th>RC</th> 
 						</tr>			
 <?php
+
 				foreach($this->results[$folderID] as $row)
 				{
 ?>
-					<tr>
-						<td><?php echo $row[0]; ?></td>
-						<td class="result" id="<?php echo $row[1]; ?>">&nbsp;</td>
-						<td class="result" id="<?php echo $row[2]; ?>">&nbsp;</td>
-						<td class="result" id="<?php echo $row[3]; ?>">&nbsp;</td>
-					</tr>
+						<tr>
+							<td><?php echo $row[0]; ?></td>
+							<td class="result" id="<?php echo $row[1]; ?>">&nbsp;</td>
+							<td class="result" id="<?php echo $row[2]; ?>">&nbsp;</td>
+							<td class="result" id="<?php echo $row[3]; ?>">&nbsp;</td>
+						</tr>
 <?php
 				}
 ?>				
 					</table>
 				</div>
+			</p>
 <?php
 				$folderID++;
 			}
@@ -210,33 +232,50 @@
 		body
 		{
 			background-color: #b2c2bf;
+			margin: 30px;
+		}
+		
+		h1
+		{
+			font-size: 40px;
+			font-family: "Segoe UI",Arial,sans-serif;
+		}
+
+		h2
+		{
+			line-height: 0px;
+			font-family: "Segoe UI",Arial,sans-serif;
 		}
 		
 		.container
 		{
-			background-color: #eaece5;
 			margin: auto;
 			width: 50%;
-			padding: 0px;
+			box-shadow: 10px 10px 5px grey;
 		}
 		
 		.header
 		{
 			background-color: #c0ded9;
-
+			text-align: center;
 			padding: 10px;
+		}
+		
+		.content
+		{
+			background-color: #eaece5;
+			padding: 15px;
 		}
 		
 		.folder
 		{
-			background-color: #eaece5;
-			padding: 10px;
+			background-color: #ffffff;
+			padding: 15px;
 		}
 		
 		table th
 		{
-			color: white;
-			background-color: black;
+			background-color: lightgrey;
 		}
 		table tr:nth-child(even)
 		{
@@ -254,12 +293,12 @@
 		
 		#OK
 		{
-			background-color: green;
+			background-color: #6B8E23;
 		}
 		
 		#NOK
 		{
-			background-color: red;
+			background-color: #ff1700;
 		}		
 		</style>
 		<title></title>
@@ -269,7 +308,9 @@
 			<div class="header">
 				<h1>IPP project automatic tests</h1>
 			</div>
-			<?php $testManager->printResults(); ?>
+			<div class="content">
+				<?php $testManager->printResults(); ?>
+			</div>
 		</div>
 	</body>
 </html>

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<program language="IPPcode18" name="02" description="Test 02: program node attributes name and description">
+<program language="IPPcode18">
   <instruction order="1" opcode="DEFVAR">
     <arg1 type="var">GF@counter</arg1>
   </instruction>

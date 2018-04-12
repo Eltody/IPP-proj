@@ -31,10 +31,12 @@ logger.setLevel("DEBUG")
 
 def main():
 	filePath = processArguments()
-
+	
+	logger.debug("=======================\nfile: {0}\n=====================\n".format(filePath))
+	
 	# --- Opening input file ---
 	try:
-		tree = ET.ElementTree(file=filePath)
+		tree = ET.ElementTree(file=filePath)	# @todo Throws error when no root found
 	except IOError:
 		print("Opening input file error", file=sys.stderr)
 		sys.exit(ERROR_FILE)		
@@ -103,52 +105,36 @@ class GlobalFrame:
 	def get(self, name):
 		if name not in self.frame:
 			errorExit(ERROR_IDK, "Variable '{0}' does not exist in global frame".format(name))	# @todo Die or retuern None??
-		return self.frame[name];
-
-''' # Won't use this anymore?		
-class ValueCreator:
-	def create(self, typeAndValue):
-		split = typeAndValue.split("@", 1)	# Divide into two elements by char '@'
-		
-		if len(split) != 2:
-			errorExit(ERROR_IDK, "Expected char '@' in value") # Might be syntax error
-		
-		specificObject = self.__determineType(split[0])
-		specificObject.setUp(split[1])
-		
-		return specificObject
-		
-		
-	def __determineType(self, strType):
-		if strType == "int":
-			return IntValue()
-		else:
-			errorExit(ERROR_IDK, "Invalid value type")
-'''			
-			
-			
-	
-class IntValue():	# @todo Funkci co na zaklade int@ rozhodne ze se vytvori int objekt
-	def __init__(self, strValue):
-		if not re.search(r"^[-+]?\d+$", strValue):
-			errorExit(ERROR_IDK, "Invalid int definition")
-			
-		self.value = int(strValue)
-
+		return self.frame[name];			
 
 
 class Argument():
 	def __init__(self, inType, inValue):
+		# --- Variable type ---
 		if inType == "var":
 			if not re.search(r"^(LF|TF|GF)@[\w_\-$&%*][\w\d_\-$&%*]*$", inValue):
 				errorExit(ERROR_IDK, "Invalid var name")
+		
+		# --- Integer type ---		
 		elif inType == "int":
 			if not re.search(r"^[-+]?\d+$$", inValue):
 				errorExit(ERROR_IDK, "Invalid int value")		
-			inValue = int(inValue)	# Convert str to int	
-		else:
-			errorExit(ERROR_IDK, "Unkown argument type")
 			
+			inValue = int(inValue)	# Convert str to int	
+			
+		# --- String type ---
+		elif inType == "string":
+			if re.search(r"(?!\\\\[0-9]{3})\s\\\\", inValue):	# @see parse.php for regex legend
+				errorExit(ERROR_IDK, "Illegal character in string")		
+		
+		# --- Boolean type ---
+		# @todo	
+			
+		# --- Invalid type ---
+		else:
+			errorExit(ERROR_IDK, "Unknown argument type")
+			
+		# --- Save value and type ---
 		self.value = inValue
 		self.argType = inType
 	
@@ -171,12 +157,31 @@ class Argument():
 			return self.value[3:]
 		else:
 			errorExit(ERROR_IDK, "Can't use getName() on non-variable")		
+
+class Stack():
+	def __init__(self):
+		self.content = []
+		
+	def pop(self, dest):
+		if len(self.content) == 0:
+			errorExit(ERROR_MISSINGVALUE, "Cannot pop empty stack")
+		
+		value = self.content.pop()	# Pop top of the stack
+		
+		interpret.globalFrame.set(dest, value)	# Set the value
+		
+		
+	def push(self, value):
+		self.content.append(value)
+		
+		
 	
 class Interpret():
 	def __init__(self):
 		order = 1
 		#valueCreator = ValueCreator()
 		self.globalFrame = GlobalFrame()
+		self.stack = Stack()
 		
 	def loadInstructions(self, root):
 		for instrNode in root:
@@ -186,6 +191,7 @@ class Interpret():
 			for arg in instrNode:
 				logger.debug("{0} {1} {2}".format(arg.tag, arg.attrib,arg.text))
 			
+			# --- Processing instruction ---
 			instruction = Instruction(instrNode)
 			instruction.execute()
 			
@@ -206,19 +212,24 @@ class Instruction():
 	def loadArguments(self, instrNode):	
 		args = []
 		argIndex = 0	
+		
 		for argNode in instrNode:
 			if argNode.tag != "arg{0}".format(argIndex+1):
 				errorExit(ERROR_IDK, "Wrong node loaded (Expected arg{0})".format(argIndex+1))
 		
 			args.append(Argument(argNode.attrib["type"], argNode.text))
 			argIndex = argIndex+1
+			
 		return(args)
 	
 	
-	def checkArguments(self, *expectedArgs):
+	def checkArguments(self, *expectedArgs):	
 		# --- Checking arguments count ---
 		if self.argCount != len(expectedArgs):
 			errorExit(ERROR_IDK, "Invalid argument count")
+			
+		# --- Converting tuple to list ---
+		expectedArgs = list(expectedArgs)	
 			
 		# --- Checking arguments type ---
 		i = 0;
@@ -256,15 +267,12 @@ class Instruction():
 			self.WRITE()
 		elif self.opCode == "MOVE":
 			self.MOVE()
+		elif self.opCode == "PUSHS":
+			self.PUSHS()
+		elif self.opCode == "POPS":
+			self.POPS()
 		else:	# @todo more instructions
-			errorExit(ERROR_IDK, "Unkown instruction")
-			
-			
-	#def __eq__(self, other): Dont need this anymore
-	#	if self.opCode == other:
-	#		return True
-	#	return False
-	
+			errorExit(ERROR_IDK, "Unkown instruction")	
 	
 		
 	# --- Instrcution DEFVAR ---
@@ -290,12 +298,24 @@ class Instruction():
 	def WRITE(self):
 		self.checkArguments(["var", "str"])  # @todo <symb>
 	
-		print(self.args[0].getValue())
+		print(self.args[0].getValue(), end='')	# end='' means no \n at the end
 
 	# --- Instrcution MOVE ---
 	def MOVE(self):
 		self.checkArguments("var", "int")  # @todo <var> <symb>
-	
+		
 		interpret.globalFrame.set(self.args[0].getName(), self.args[1].getValue())
+		
+	# --- Instrcution PUSHS ---
+	def PUSHS(self):
+		self.checkArguments("symb")
+	
+		interpret.stack.push(self.args[0].getValue())
+
+	# --- Instrcution POPS ---
+	def POPS(self):
+		self.checkArguments("var")
+	
+		interpret.stack.pop(self.args[0].getName())
 		
 main()

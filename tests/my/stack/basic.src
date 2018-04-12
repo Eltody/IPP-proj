@@ -1,0 +1,5 @@
+.IPPcode18
+DEFVAR GF@aaa
+PUSHS int@78 
+POPS GF@aaa
+WRITE GF@aaa

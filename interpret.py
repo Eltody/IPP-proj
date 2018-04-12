@@ -31,8 +31,8 @@ logger.setLevel("DEBUG")
 
 def main():
 	filePath = processArguments()
-	
-	logger.debug("=======================\nfile: {0}\n=====================\n".format(filePath))
+
+	logger.debug("==================================\nfile: {0}\n==============================\n".format(filePath))
 	
 	# --- Opening input file ---
 	try:
@@ -69,7 +69,7 @@ def main():
 		
 
 def errorExit(code, msg):
-	print(msg, file=sys.stderr)
+	print("ERROR: {0}".format(msg), file=sys.stderr)
 	sys.exit(code)	
 
 def processArguments(): # @todo space in source name
@@ -288,7 +288,11 @@ class Instruction():
 	def ADD(self):
 		self.checkArguments("var", ["int", "var"], ["int", "var"])
 		
-		# @todo check if value in var is int number
+		# --- Check if variable contains int ---
+		if self.args[1].getType() == "var" and interpret.globalFrame.get(self.args[1].getName()) != "int":
+			errorExit(ERROR_OPERANDS, "Wrong first operand type for function ADD")
+		if self.args[2].getType() == "var" and interpret.globalFrame.get(self.args[2].getName()) != "int":
+			errorExit(ERROR_OPERANDS, "Wrong second operand type for function ADD")
 			
 		result = self.args[1].getValue() + self.args[2].getValue()	
 			
@@ -302,7 +306,7 @@ class Instruction():
 
 	# --- Instrcution MOVE ---
 	def MOVE(self):
-		self.checkArguments("var", "int")  # @todo <var> <symb>
+		self.checkArguments("var", "symb")  # @todo <var> <symb>
 		
 		interpret.globalFrame.set(self.args[0].getName(), self.args[1].getValue())
 		

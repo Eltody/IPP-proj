@@ -244,12 +244,12 @@ class Instruction():
 			# -- Only one allowed type --
 			if type(expectedArgs[i]) == str:
 				if argType != expectedArgs[i]:
-					errorExit(ERROR_IDK, "Invalid argument type")
+					errorExit(ERROR_IDK, "Invalid argument type (expected {0} given {1})".format(expectedArgs[i],argType))
 					
 			# -- More allowed types --
 			elif type(expectedArgs[i]) == list:
 				if argType not in expectedArgs[i]:	# Check if used argument has one of expected types
-					errorExit(ERROR_IDK, "Invalid argument type")
+					errorExit(ERROR_IDK, "Invalid argument type (expected {0} given {1})".format(expectedArgs[i],argType))
 					
 			# -- Wrong method parameters --
 			else:
@@ -257,6 +257,15 @@ class Instruction():
 				
 			i = i+1
 	
+	def __checkVarType(self, variable, expected):
+		'''Compares expected and actula variable type if called on variable'''
+		if variable.getType() != "var":
+			return
+		
+		if interpret.globalFrame.get(variable.getName()) != expected:
+			errorExit(ERROR_OPERANDS, "Wrong type inside variable (expected {0} given {1})".format(expected, variable.getType()))
+			
+		
 	
 	def execute(self):
 		if self.opCode == "DEFVAR":
@@ -271,6 +280,8 @@ class Instruction():
 			self.PUSHS()
 		elif self.opCode == "POPS":
 			self.POPS()
+		elif self.opCode == "STRLEN":
+			self.STRLEN()
 		else:	# @todo more instructions
 			errorExit(ERROR_IDK, "Unkown instruction")	
 	
@@ -289,10 +300,8 @@ class Instruction():
 		self.checkArguments("var", ["int", "var"], ["int", "var"])
 		
 		# --- Check if variable contains int ---
-		if self.args[1].getType() == "var" and interpret.globalFrame.get(self.args[1].getName()) != "int":
-			errorExit(ERROR_OPERANDS, "Wrong first operand type for function ADD")
-		if self.args[2].getType() == "var" and interpret.globalFrame.get(self.args[2].getName()) != "int":
-			errorExit(ERROR_OPERANDS, "Wrong second operand type for function ADD")
+		self.__checkVarType(self.args[1], "int")
+		self.__checkVarType(self.args[2], "int")
 			
 		result = self.args[1].getValue() + self.args[2].getValue()	
 			
@@ -300,13 +309,13 @@ class Instruction():
 	
 	# --- Instrcution WRITE ---
 	def WRITE(self):
-		self.checkArguments(["var", "str"])  # @todo <symb>
+		self.checkArguments("symb")
 	
 		print(self.args[0].getValue(), end='')	# end='' means no \n at the end
 
 	# --- Instrcution MOVE ---
 	def MOVE(self):
-		self.checkArguments("var", "symb")  # @todo <var> <symb>
+		self.checkArguments("var", "symb")
 		
 		interpret.globalFrame.set(self.args[0].getName(), self.args[1].getValue())
 		
@@ -321,5 +330,15 @@ class Instruction():
 		self.checkArguments("var")
 	
 		interpret.stack.pop(self.args[0].getName())
+		
+	# --- Instrcution STRLEN ---
+	def STRLEN(self):
+		self.checkArguments("var", ["string", "var"])
+	
+		self.__checkVarType(self.args[1], "string")
+		
+		length = len(self.args[1].getValue())
+	
+		interpret.globalFrame.set(self.args[0].getName(), length)
 		
 main()

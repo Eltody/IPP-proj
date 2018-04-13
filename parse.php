@@ -330,7 +330,8 @@
 		{
 			if(!$this->processValue($value))
 			{
-				errorExit(21, "PARSER ERROR: Invalid argument (type is \"".$this->type."\")");
+				global $order;
+				errorExit(21, "PARSER ERROR: Invalid argument (type=\"".$this->type."\" in instruction #$order)");
 			}
 			
 			$this->value = $value;

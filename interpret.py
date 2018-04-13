@@ -175,10 +175,13 @@ class Stack():
 	def pop(self, dest):
 		if len(self.content) == 0:
 			errorExit(ERROR_MISSINGVALUE, "Cannot pop empty stack")
+			
+		if type(dest) != var:
+			errorExit(ERROR_IDK, "Cannot pop to non-variable")
 		
 		value = self.content.pop()	# Pop top of the stack
 		
-		interpret.globalFrame.set(dest, value)	# Set the value
+		dest.setValue(value)	# Set the value
 		
 		
 	def push(self, value):
@@ -196,6 +199,27 @@ class var:
 	def getName(self):
 		"""Returns name of var including frame prefix"""
 		return self.name
+	
+	def setValue(self, value):
+		interpret.globalFrame.set(self.getName(), value)
+		
+	def __add__(self, other):	# When var + int is called
+		# --- Get values ---
+		selfVal = self.getValue()
+		if type(other) == var:
+			otherVal = other.getValue()
+		else:
+			otherVal = other	
+	
+		# --- Check types ---
+		if type(selfVal) != int or type(otherVal) != int:
+			errorExit(ERROR_IDK, "Cannot add non-int values/variables")
+		
+		# --- Solve result ---
+		return selfVal + otherVal 
+		
+	def __radd__(self, other):	# When int + var is called
+		return self.__add__(other)
 	
 class symb:
 	"""Dummy object representing str, int, bool or var in instruction.checkArgumentes()"""
@@ -325,10 +349,10 @@ class Instruction():
 	
 	def __checkVarType(self, variable, expected):
 		'''Compares expected and actula variable type if called on variable'''
-		if variable.getType() != "var":
+		if type(variable) != var:
 			return
 		
-		if interpret.globalFrame.get(variable.getName()) != expected:
+		if type(variable.getValue()) != expected:
 			errorExit(ERROR_OPERANDS, "Wrong type inside variable (expected {0} given {1})".format(expected, variable.getType()))
 			
 		
@@ -361,47 +385,47 @@ class Instruction():
 	# --- Instrcution ADD ---
 	def ADD(self):
 		self.__checkArguments(var, [int, var], [int, var])
-		
-		# --- Check if variable contains int ---
-		#self.__checkVarType(self.args[1], "int")
-		#self.__checkVarType(self.args[2], "int")
-			
+
+		# -- Count and save result --
 		result = self.args[1] + self.args[2]	
-			
-		interpret.globalFrame.set(self.args[0].getName(), result)	# @todo universal frame manager
+		self.args[0].setValue(result)
 	
 	# --- Instrcution WRITE ---
 	def WRITE(self):
 		self.__checkArguments(symb)
 	
-		print(self.args[0].getValue(), end='')	# end='' means no \n at the end
+		if type(self.args[0]) == var:	# Printing variable
+			result = self.args[0].getValue()
+		else:
+			result = str(self.args[0])
+		print(result, end='')	# end='' means no \n at the end
 
 	# --- Instrcution MOVE ---
 	def MOVE(self):
-		self.checkArguments("var", "symb")
+		self.__checkArguments(var, symb)
 		
-		interpret.globalFrame.set(self.args[0].getName(), self.args[1].getValue())
+		self.args[0].setValue(self.args[1])
 		
 	# --- Instrcution PUSHS ---
 	def PUSHS(self):
-		self.checkArguments("symb")
+		self.__checkArguments(symb)
 	
-		interpret.stack.push(self.args[0].getValue())
+		interpret.stack.push(self.args[0])
 
 	# --- Instrcution POPS ---
 	def POPS(self):
-		self.checkArguments("var")
+		self.__checkArguments(var)
 	
-		interpret.stack.pop(self.args[0].getName())
+		interpret.stack.pop(self.args[0])
 		
 	# --- Instrcution STRLEN ---
 	def STRLEN(self):
-		self.checkArguments("var", ["string", "var"])
+		self.__checkArguments(var, [str, var])
 	
-		self.__checkVarType(self.args[1], "string")
+		#self.__checkVarType(self.args[1], "string")
 		
-		length = len(self.args[1].getValue())
+		#length = len(self.args[1].getValue())
 	
-		interpret.globalFrame.set(self.args[0].getName(), length)
+		#interpret.globalFrame.set(self.args[0].getName(), length)
 		
 main()

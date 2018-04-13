@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<program language="IPPcode18">
+  <instruction order="1" opcode="WRITE">
+    <arg1 type="string">řetězec\032s\032lomítkem\032\092\032a\010novým\035řádkem</arg1>
+  </instruction>
+</program>

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<program language="IPPcode18">
+  <instruction order="1" opcode="DEFVAR">
+    <arg1 type="var">GF@len</arg1>
+  </instruction>
+  <instruction order="2" opcode="STRLEN">
+    <arg1 type="var">GF@len</arg1>
+    <arg2 type="string">Proc\032me\032napadla\032zrovna\032lokomotiva?</arg2>
+  </instruction>
+  <instruction order="3" opcode="WRITE">
+    <arg1 type="var">GF@len</arg1>
+  </instruction>
+  <instruction order="4" opcode="WRITE">
+    <arg1 type="string">,</arg1>
+  </instruction>
+  <instruction order="5" opcode="DEFVAR">
+    <arg1 type="var">GF@aaa</arg1>
+  </instruction>
+  <instruction order="6" opcode="MOVE">
+    <arg1 type="var">GF@aaa</arg1>
+    <arg2 type="string">lokomotiva</arg2>
+  </instruction>
+  <instruction order="7" opcode="STRLEN">
+    <arg1 type="var">GF@len</arg1>
+    <arg2 type="var">GF@aaa</arg2>
+  </instruction>
+  <instruction order="8" opcode="WRITE">
+    <arg1 type="var">GF@len</arg1>
+  </instruction>
+</program>

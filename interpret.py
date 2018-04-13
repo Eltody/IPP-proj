@@ -114,7 +114,13 @@ class GlobalFrame:
 	def get(self, name):
 		if name not in self.frame:
 			errorExit(ERROR_IDK, "Variable '{0}' does not exist in global frame".format(name))	# @todo Die or retuern None??
-		return self.frame[name];			
+		
+		result = self.frame[name]
+		
+		if type(result) == type(None):
+			errorExit(ERROR_IDK, "Tried to get non-initilaized value")
+		
+		return result;			
 
 """
 class Argument():
@@ -265,10 +271,30 @@ class Interpret():
 			
 		# --- String type ---
 		elif xmlType == "string":
-			if re.search(r"(?!\\\\[0-9]{3})\s\\\\", xmlValue):	# @see parse.php for regex legend
-				errorExit(ERROR_IDK, "Illegal character in string")		
+			#if re.search(r"(?!\\[0-9]{3})[\s\\#]", xmlValue):	# @see parse.php for regex legend
+			#	errorExit(ERROR_IDK, "Illegal character in string")	# @todo check the regex
 			
-			return xmlValue;
+			# @todo decode escape characters
+			#search = 
+			
+			#while(True):	# Please don't tell Smrcka
+			#	found = re.search(r"\\([0-9]{3})", xmlValue)
+			#	
+			#	if(found == None)
+			#		break
+			#	
+			#	re.sub(r"\\[0-9]{3}", chr(found.group(1)), xmlValue)
+			
+			groups = re.findall(r"\\([0-9]{3})", xmlValue)	# Find escape sequences
+			groups = list(set(groups))	# Remove duplicates
+			
+			for group in groups:
+				if group == "092":	# Special case for \ (I don't even know why)
+					xmlValue = re.sub("\\\\092", "\\\\", xmlValue)
+					continue
+				xmlValue = re.sub("\\\\{0}".format(group), chr(int(group)), xmlValue)
+			
+			return xmlValue
 		
 		# --- Boolean type ---
 		# @todo	
@@ -422,10 +448,13 @@ class Instruction():
 	def STRLEN(self):
 		self.__checkArguments(var, [str, var])
 	
-		#self.__checkVarType(self.args[1], "string")
+		if type(self.args[1]) == var:
+			string = self.args[1].getValue()
+		else:
+			string = str(self.args[1])
 		
-		#length = len(self.args[1].getValue())
+		length = len(string)
 	
-		#interpret.globalFrame.set(self.args[0].getName(), length)
+		self.args[0].setValue(length)
 		
 main()

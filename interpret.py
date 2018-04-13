@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 
 
-
 # Libraries
 import sys
 import xml.etree.ElementTree as ET
 import re
 import logging
 
+
+# === Constants ===
 ERROR_IDK = 420
 ERROR_ARGUMENT = 10
 ERROR_FILE = 11
@@ -21,6 +22,7 @@ ERROR_MISSINGVALUE = 56
 ERROR_ZERODIVIDE = 57
 ERROR_STRING = 58
 
+
 # === Debug logs ===
 logger = logging.getLogger("interpret")
 handler = logging.StreamHandler()
@@ -29,8 +31,10 @@ handler.setFormatter(formatter)
 logger.addHandler(handler)
 logger.setLevel("DEBUG")
 
+
+# === Main function ===
 def main():
-	filePath = processArguments()
+	filePath = processProgramArguments()
 
 	logger.debug("==================================\nfile: {0}\n==============================\n".format(filePath))
 	
@@ -67,12 +71,13 @@ def main():
 	interpret.loadInstructions(root)
 		
 		
-
+# === Other functions ===
 def errorExit(code, msg):
 	print("ERROR: {0}".format(msg), file=sys.stderr)
 	sys.exit(code)	
 
-def processArguments(): # @todo space in source name
+
+def processProgramArguments(): # @todo space in source name
 	if len(sys.argv) != 2:
 		print("Invalid argument count", file=sys.stderr)
 		sys.exit(ERROR_ARGUMENT)
@@ -86,6 +91,8 @@ def processArguments(): # @todo space in source name
 		print("Illegal argument", file=sys.stderr)
 		sys.exit(ERROR_ARGUMENT)
 		
+		
+# === Classes ===		
 class GlobalFrame:
 	def	__init__(self):
 		self.frame = {}
@@ -98,8 +105,10 @@ class GlobalFrame:
 	def set(self, name, value): # @todo Maybe not value but Instruction object? To be sure about the type
 		if name not in self.frame:
 			errorExit(ERROR_IDK, "Coudn't set value to non-existing variable '{0}'".format(name))
+		
+		if type(value) == var:	# If trying to save var
+			value = value.getValue()
 			
-		# @todo Check types
 		self.frame[name] = value;
 		
 	def get(self, name):
@@ -107,7 +116,7 @@ class GlobalFrame:
 			errorExit(ERROR_IDK, "Variable '{0}' does not exist in global frame".format(name))	# @todo Die or retuern None??
 		return self.frame[name];			
 
-
+"""
 class Argument():
 	def __init__(self, inType, inValue):
 		# --- Variable type ---
@@ -157,6 +166,7 @@ class Argument():
 			return self.value[3:]
 		else:
 			errorExit(ERROR_IDK, "Can't use getName() on non-variable")		
+"""
 
 class Stack():
 	def __init__(self):
@@ -175,6 +185,23 @@ class Stack():
 		self.content.append(value)
 		
 		
+class var:
+	def __init__(self, name):
+		self.name = name	
+		
+	def getValue(self):
+		"""Returns value stored in var"""
+		return interpret.globalFrame.get(self.getName())
+
+	def getName(self):
+		"""Returns name of var including frame prefix"""
+		return self.name
+	
+class symb:
+	"""Dummy object representing str, int, bool or var in instruction.checkArgumentes()"""
+	pass
+		
+				
 	
 class Interpret():
 	def __init__(self):
@@ -194,36 +221,75 @@ class Interpret():
 			# --- Processing instruction ---
 			instruction = Instruction(instrNode)
 			instruction.execute()
+	
+	def convertValue(self, xmlType, xmlValue):
+		"""Converts XML value (str in python) to actual type (int, str, bool or var)"""
+		
+		# --- Variable type ---
+		if xmlType == "var":
+			if not re.search(r"^(LF|TF|GF)@[\w_\-$&%*][\w\d_\-$&%*]*$", xmlValue):
+				errorExit(ERROR_IDK, "Invalid var name")
+				
+			return var(xmlValue)
+		
+		# --- Integer type ---		
+		elif xmlType == "int":
+			if not re.search(r"^[-+]?\d+$$", xmlValue):
+				errorExit(ERROR_IDK, "Invalid int value")		
 			
+			return int(xmlValue)	# Convert str to int	
+			
+		# --- String type ---
+		elif xmlType == "string":
+			if re.search(r"(?!\\\\[0-9]{3})\s\\\\", xmlValue):	# @see parse.php for regex legend
+				errorExit(ERROR_IDK, "Illegal character in string")		
+			
+			return xmlValue;
+		
+		# --- Boolean type ---
+		# @todo	
+			
+		# --- Invalid type ---
+		else:
+			errorExit(ERROR_IDK, "Unknown argument type (given {0})".format(xmlType))
+	
+	
 	
 class Instruction():
 	def __init__(self, node):
+		'''Initialization of internal strcture of XML <instruction> node'''
+		
+		# --- Check node ---
 		if node.tag != "instruction":
 			errorExit(ERROR_IDK, "Wrong node loaded (Expected instruction)")
 		
 		# @todo here shuld be order chceck
 		
-		
+		# --- Process node ---
 		self.opCode = node.attrib["opcode"]	
-		self.args = self.loadArguments(node)
+		self.args = self.__loadArguments(node)
 		self.argCount = len(self.args)
 		
 		
-	def loadArguments(self, instrNode):	
+	def __loadArguments(self, instrNode):	
+		'''Loads child nodes (<argX>) of <instruction> node'''
 		args = []
 		argIndex = 0	
 		
+		# --- Load child nodes ---
 		for argNode in instrNode:
+			# -- Check arg node --
 			if argNode.tag != "arg{0}".format(argIndex+1):
 				errorExit(ERROR_IDK, "Wrong node loaded (Expected arg{0})".format(argIndex+1))
 		
-			args.append(Argument(argNode.attrib["type"], argNode.text))
+			# --- Save arg value ---
+			args.append(interpret.convertValue(argNode.attrib["type"], argNode.text))
 			argIndex = argIndex+1
 			
 		return(args)
 	
 	
-	def checkArguments(self, *expectedArgs):	
+	def __checkArguments(self, *expectedArgs):	
 		# --- Checking arguments count ---
 		if self.argCount != len(expectedArgs):
 			errorExit(ERROR_IDK, "Invalid argument count")
@@ -235,14 +301,14 @@ class Instruction():
 		i = 0;
 		for arg in self.args: # Check every argument
 			# -- Replacing <symb> --
-			if expectedArgs[i] == "symb":
-				expectedArgs[i] = ["int", "bool", "string", "var"]
+			if expectedArgs[i] == symb:
+				expectedArgs[i] = [int, bool, str, var]
 			
 			
-			argType = arg.getType()	# Saved argument's type
+			argType = type(arg)	# Saved argument's type
 			
 			# -- Only one allowed type --
-			if type(expectedArgs[i]) == str:
+			if type(expectedArgs[i]) == type:
 				if argType != expectedArgs[i]:
 					errorExit(ERROR_IDK, "Invalid argument type (expected {0} given {1})".format(expectedArgs[i],argType))
 					
@@ -288,28 +354,25 @@ class Instruction():
 		
 	# --- Instrcution DEFVAR ---
 	def DEFVAR(self):
-		self.checkArguments("var")
-			
-		if re.search(r"^GF@", self.args[0].value):	# Using .value instead of getValue because var is not yet in frame
-			interpret.globalFrame.add(self.args[0].getName())	# @todo universal frame manager
-		else:	# @todo more frames
-			errorExit(ERROR_IDK, "Unkown frame in instruction DEFVAR")
+		self.__checkArguments(var)
+		
+		interpret.globalFrame.add(self.args[0].getName())	
 		
 	# --- Instrcution ADD ---
 	def ADD(self):
-		self.checkArguments("var", ["int", "var"], ["int", "var"])
+		self.__checkArguments(var, [int, var], [int, var])
 		
 		# --- Check if variable contains int ---
-		self.__checkVarType(self.args[1], "int")
-		self.__checkVarType(self.args[2], "int")
+		#self.__checkVarType(self.args[1], "int")
+		#self.__checkVarType(self.args[2], "int")
 			
-		result = self.args[1].getValue() + self.args[2].getValue()	
+		result = self.args[1] + self.args[2]	
 			
 		interpret.globalFrame.set(self.args[0].getName(), result)	# @todo universal frame manager
 	
 	# --- Instrcution WRITE ---
 	def WRITE(self):
-		self.checkArguments("symb")
+		self.__checkArguments(symb)
 	
 		print(self.args[0].getValue(), end='')	# end='' means no \n at the end
 

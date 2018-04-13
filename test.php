@@ -141,7 +141,7 @@
 			
 			// --- Check .rc file ---	
 			exec("python3.6 ".$this->arguments->interpretPath." --source=\"$path.tmp.in\" >\"$path.tmp.out\"");
-			exec("echo $? | diff --ignore-all-space -q - \"$path.rc\"", $dump, $diff);	
+			exec("echo $? | diff -q - \"$path.rc\"", $dump, $diff);	
 			if($diff == 0)
 				$rc = "OK";
 			else

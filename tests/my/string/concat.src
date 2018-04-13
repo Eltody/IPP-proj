@@ -1,0 +1,8 @@
+.IPPcode18
+DEFVAR GF@aaa
+DEFVAR GF@res
+
+MOVE GF@aaa string@Fun
+CONCAT GF@res GF@aaa string@guje
+
+WRITE GF@res

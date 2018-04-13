@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<program language="IPPcode18">
+  <instruction order="1" opcode="DEFVAR">
+    <arg1 type="var">GF@aaa</arg1>
+  </instruction>
+  <instruction order="2" opcode="DEFVAR">
+    <arg1 type="var">GF@bbb</arg1>
+  </instruction>
+  <instruction order="3" opcode="DEFVAR">
+    <arg1 type="var">GF@ccc</arg1>
+  </instruction>
+  <instruction order="4" opcode="DEFVAR">
+    <arg1 type="var">GF@ddd</arg1>
+  </instruction>
+  <instruction order="5" opcode="MOVE">
+    <arg1 type="var">GF@aaa</arg1>
+    <arg2 type="string">nevim</arg2>
+  </instruction>
+  <instruction order="6" opcode="TYPE">
+    <arg1 type="var">GF@bbb</arg1>
+    <arg2 type="var">GF@aaa</arg2>
+  </instruction>
+  <instruction order="7" opcode="TYPE">
+    <arg1 type="var">GF@ccc</arg1>
+    <arg2 type="int">14</arg2>
+  </instruction>
+  <instruction order="8" opcode="TYPE">
+    <arg1 type="var">GF@ddd</arg1>
+    <arg2 type="bool">false</arg2>
+  </instruction>
+  <instruction order="9" opcode="WRITE">
+    <arg1 type="var">GF@bbb</arg1>
+  </instruction>
+  <instruction order="10" opcode="WRITE">
+    <arg1 type="var">GF@ccc</arg1>
+  </instruction>
+  <instruction order="11" opcode="WRITE">
+    <arg1 type="var">GF@ddd</arg1>
+  </instruction>
+</program>

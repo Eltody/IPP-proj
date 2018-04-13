@@ -1,0 +1,16 @@
+.IPPcode18
+DEFVAR GF@aaa
+DEFVAR GF@bbb
+DEFVAR GF@ccc
+DEFVAR GF@ddd
+
+MOVE GF@aaa string@nevim
+
+TYPE GF@bbb GF@aaa
+TYPE GF@ccc int@14
+TYPE GF@ddd bool@false
+
+WRITE GF@bbb
+WRITE GF@ccc
+WRITE GF@ddd
+

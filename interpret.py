@@ -122,57 +122,6 @@ class GlobalFrame:
 		
 		return result;			
 
-"""
-class Argument():
-	def __init__(self, inType, inValue):
-		# --- Variable type ---
-		if inType == "var":
-			if not re.search(r"^(LF|TF|GF)@[\w_\-$&%*][\w\d_\-$&%*]*$", inValue):
-				errorExit(ERROR_IDK, "Invalid var name")
-		
-		# --- Integer type ---		
-		elif inType == "int":
-			if not re.search(r"^[-+]?\d+$$", inValue):
-				errorExit(ERROR_IDK, "Invalid int value")		
-			
-			inValue = int(inValue)	# Convert str to int	
-			
-		# --- String type ---
-		elif inType == "string":
-			if re.search(r"(?!\\\\[0-9]{3})\s\\\\", inValue):	# @see parse.php for regex legend
-				errorExit(ERROR_IDK, "Illegal character in string")		
-		
-		# --- Boolean type ---
-		# @todo	
-			
-		# --- Invalid type ---
-		else:
-			errorExit(ERROR_IDK, "Unknown argument type")
-			
-		# --- Save value and type ---
-		self.value = inValue
-		self.argType = inType
-	
-	def getValue(self):
-		'''Returns actual value, even if used on variable'''
-		if self.argType == "var":
-			value = interpret.globalFrame.get(self.getName())
-			if value is None:
-				errorExit(ERROR_MISSINGVALUE, "Tried to read uninitialised variable") # Error 56
-			return value
-		else:
-			return self.value
-		
-	def getType(self):
-		return self.argType
-		
-	def getName(self):
-		'''Returns name of variable without "GF@"'''
-		if self.argType == "var":
-			return self.value[3:]
-		else:
-			errorExit(ERROR_IDK, "Can't use getName() on non-variable")		
-"""
 
 class Stack():
 	def __init__(self):
@@ -226,6 +175,22 @@ class var:
 		
 	def __radd__(self, other):	# When int + var is called
 		return self.__add__(other)
+		
+	def __str__(self):
+		value = self.getValue()
+		
+		if type(value) != str:
+			errorExit(ERROR_IDK, "Cannot convert non-string variable to string")
+			
+		return value
+		
+	def __int__(self):
+		value = self.getValue()
+		
+		if type(value) != int:
+			errorExit(ERROR_IDK, "Cannot convert non-string variable to string")
+			
+		return value
 	
 class symb:
 	"""Dummy object representing str, int, bool or var in instruction.checkArgumentes()"""
@@ -340,6 +305,11 @@ class Instruction():
 	
 	
 	def __checkArguments(self, *expectedArgs):	
+		#DEBUG
+		#print(self.argCount)
+		#print(len(expectedArgs))
+		#print(expectedArgs)
+		
 		# --- Checking arguments count ---
 		if self.argCount != len(expectedArgs):
 			errorExit(ERROR_IDK, "Invalid argument count")
@@ -398,6 +368,14 @@ class Instruction():
 			self.POPS()
 		elif self.opCode == "STRLEN":
 			self.STRLEN()
+		elif self.opCode == "CONCAT":
+			self.CONCAT()
+		elif self.opCode == "GETCHAR":
+			self.GETCHAR()
+		elif self.opCode == "SETCHAR":
+			self.SETCHAR()
+		elif self.opCode == "TYPE":
+			self.TYPE()
 		else:	# @todo more instructions
 			errorExit(ERROR_IDK, "Unkown instruction")	
 	
@@ -424,6 +402,7 @@ class Instruction():
 			result = self.args[0].getValue()
 		else:
 			result = str(self.args[0])
+			
 		print(result, end='')	# end='' means no \n at the end
 
 	# --- Instrcution MOVE ---
@@ -447,14 +426,66 @@ class Instruction():
 	# --- Instrcution STRLEN ---
 	def STRLEN(self):
 		self.__checkArguments(var, [str, var])
-	
-		if type(self.args[1]) == var:
-			string = self.args[1].getValue()
-		else:
-			string = str(self.args[1])
 		
-		length = len(string)
+		result = len(str(self.args[1]))
 	
-		self.args[0].setValue(length)
+		self.args[0].setValue(result)
+		
+	# --- Instrcution CONCAT ---
+	def CONCAT(self):
+		self.__checkArguments(var, [str, var], [str, var])
+	
+		result = str(self.args[1]) + str(self.args[2])
+	
+		self.args[0].setValue(result)
+		
+	# --- Instrcution GETCHAR ---
+	def GETCHAR(self):
+		self.__checkArguments(var, [str, var], [int, var])
+	
+		string = str(self.args[1])
+		position = int(self.args[2])
+		
+		if position >= len(string):
+			errorExit(ERROR_STRING, "GETCHAR position out of range")
+		
+		result = string[position]
+	
+		self.args[0].setValue(result)
+		
+	# --- Instrcution GETCHAR ---
+	def SETCHAR(self):
+		self.__checkArguments(var, [int, var], [str, var])
+	
+		string = str(self.args[0])
+		position = int(self.args[1])
+		character = str(self.args[2])
+		
+		if position >= len(string):
+			errorExit(ERROR_STRING, "SETCHAR position out of range")
+		if len(character) == 0:
+			errorExit(ERROR_STRING, "SETCHAR replacement character not given")
+		
+		result = string[:position] + character[0] + string[position+1:]
+	
+		self.args[0].setValue(result)
+		
+	# --- Instrcution TYPE ---	
+	def TYPE(self):
+		self.__checkArguments(var, symb)
+		
+		if type(self.args[1]) == var:
+			value = self.args[1].getValue()
+		else:
+			value = self.args[1]
+			
+		valueType = str(type(value))
+		
+		if valueType == "str":
+			result = "string"
+		else:
+			result = valueType
+			
+		self.args[0].setValue(result)
 		
 main()

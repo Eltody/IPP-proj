@@ -1,0 +1,8 @@
+.IPPcode18
+DEFVAR GF@res
+
+MOVE GF@res string@FunXuje
+
+SETCHAR GF@res int@3 string@gloremipsum 
+
+WRITE GF@res

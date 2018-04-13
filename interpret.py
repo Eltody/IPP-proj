@@ -157,25 +157,9 @@ class var:
 	
 	def setValue(self, value):
 		interpret.globalFrame.set(self.getName(), value)
-		
-	def __add__(self, other):	# When var + int is called
-		# --- Get values ---
-		selfVal = self.getValue()
-		if type(other) == var:
-			otherVal = other.getValue()
-		else:
-			otherVal = other	
+			
 	
-		# --- Check types ---
-		if type(selfVal) != int or type(otherVal) != int:
-			errorExit(ERROR_IDK, "Cannot add non-int values/variables")
-		
-		# --- Solve result ---
-		return selfVal + otherVal 
-		
-	def __radd__(self, other):	# When int + var is called
-		return self.__add__(other)
-		
+	# == Actual value convert method ==
 	def __str__(self):
 		value = self.getValue()
 		
@@ -188,12 +172,21 @@ class var:
 		value = self.getValue()
 		
 		if type(value) != int:
-			errorExit(ERROR_IDK, "Cannot convert non-string variable to string")
+			errorExit(ERROR_IDK, "Cannot convert non-string variable to int")
 			
 		return value
 	
+	def __bool__(self):
+		value = self.getValue()
+		
+		if type(value) != bool:
+			errorExit(ERROR_IDK, "Cannot convert non-string variable to bool")
+			
+		return value	
+		
+		
 class symb:
-	"""Dummy object representing str, int, bool or var in instruction.checkArgumentes()"""
+	"""Dummy class representing str, int, bool or var in instruction.checkArgumentes()"""
 	pass
 		
 				
@@ -239,17 +232,7 @@ class Interpret():
 			#if re.search(r"(?!\\[0-9]{3})[\s\\#]", xmlValue):	# @see parse.php for regex legend
 			#	errorExit(ERROR_IDK, "Illegal character in string")	# @todo check the regex
 			
-			# @todo decode escape characters
-			#search = 
-			
-			#while(True):	# Please don't tell Smrcka
-			#	found = re.search(r"\\([0-9]{3})", xmlValue)
-			#	
-			#	if(found == None)
-			#		break
-			#	
-			#	re.sub(r"\\[0-9]{3}", chr(found.group(1)), xmlValue)
-			
+			# -- Decode escape sequence --
 			groups = re.findall(r"\\([0-9]{3})", xmlValue)	# Find escape sequences
 			groups = list(set(groups))	# Remove duplicates
 			
@@ -262,7 +245,15 @@ class Interpret():
 			return xmlValue
 		
 		# --- Boolean type ---
-		# @todo	
+		elif xmlType == "bool":
+			if xmlValue == "true":
+				boolean = True
+			elif xmlValue == "false":
+				boolean = False
+			else:
+				errorExit(ERROR_IDK, "Invalid bool value")
+			
+			return boolean
 			
 		# --- Invalid type ---
 		else:
@@ -358,6 +349,12 @@ class Instruction():
 			self.DEFVAR()
 		elif self.opCode == "ADD":
 			self.ADD()
+		elif self.opCode == "SUB":
+			self.SUB()
+		elif self.opCode == "MUL":
+			self.MUL()
+		elif self.opCode == "IDIV":
+			self.IDIV()
 		elif self.opCode == "WRITE":
 			self.WRITE()
 		elif self.opCode == "MOVE":
@@ -391,9 +388,39 @@ class Instruction():
 		self.__checkArguments(var, [int, var], [int, var])
 
 		# -- Count and save result --
-		result = self.args[1] + self.args[2]	
+		result = int(self.args[1]) + int(self.args[2])	
 		self.args[0].setValue(result)
-	
+		
+	# --- Instrcution SUB ---
+	def SUB(self):
+		self.__checkArguments(var, [int, var], [int, var])
+
+		# -- Count and save result --
+		result = int(self.args[1]) - int(self.args[2])	
+		self.args[0].setValue(result)
+
+		
+	# --- Instrcution ADD ---
+	def MUL(self):
+		self.__checkArguments(var, [int, var], [int, var])
+
+		# -- Count and save result --
+		result = int(self.args[1]) * int(self.args[2])	
+		self.args[0].setValue(result)
+		
+		
+	# --- Instrcution ADD ---
+	def IDIV(self):
+		self.__checkArguments(var, [int, var], [int, var])
+
+		# -- Check for zero divide --
+		if int(self.args[2]) == 0:
+			errorExit(ERROR_ZERODIVIDE, "Tried to divide by zero")
+
+		result = int(self.args[1]) // int(self.args[2])	
+		
+		self.args[0].setValue(result)
+		
 	# --- Instrcution WRITE ---
 	def WRITE(self):
 		self.__checkArguments(symb)
@@ -479,7 +506,7 @@ class Instruction():
 		else:
 			value = self.args[1]
 			
-		valueType = str(type(value))
+		valueType = re.search(r"<class '(str|bool|int)'>", str(type(value))).group(1)
 		
 		if valueType == "str":
 			result = "string"
@@ -487,5 +514,6 @@ class Instruction():
 			result = valueType
 			
 		self.args[0].setValue(result)
+
 		
 main()

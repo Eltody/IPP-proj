@@ -273,6 +273,11 @@
 			padding: 15px;
 		}
 		
+		table, th, td
+		{
+			border: 1px solid black;
+		}
+		
 		table th
 		{
 			background-color: lightgrey;

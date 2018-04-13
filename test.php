@@ -158,8 +158,8 @@
 				$out = "NOK";
 				
 			// --- Delete temporary files ---
-			unlink("$path.tmp.in");
-			unlink("$path.tmp.out");
+			//unlink("$path.tmp.in");
+			//unlink("$path.tmp.out");
 				
 				
 			// --- Save results ---

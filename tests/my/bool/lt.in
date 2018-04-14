@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<program language="IPPcode18">
+  <instruction order="1" opcode="DEFVAR">
+    <arg1 type="var">GF@str</arg1>
+  </instruction>
+  <instruction order="2" opcode="DEFVAR">
+    <arg1 type="var">GF@int</arg1>
+  </instruction>
+  <instruction order="3" opcode="DEFVAR">
+    <arg1 type="var">GF@bool</arg1>
+  </instruction>
+  <instruction order="4" opcode="DEFVAR">
+    <arg1 type="var">GF@res</arg1>
+  </instruction>
+  <instruction order="5" opcode="MOVE">
+    <arg1 type="var">GF@str</arg1>
+    <arg2 type="string">abc</arg2>
+  </instruction>
+  <instruction order="6" opcode="MOVE">
+    <arg1 type="var">GF@int</arg1>
+    <arg2 type="int">42</arg2>
+  </instruction>
+  <instruction order="7" opcode="MOVE">
+    <arg1 type="var">GF@bool</arg1>
+    <arg2 type="bool">false</arg2>
+  </instruction>
+  <instruction order="8" opcode="LT">
+    <arg1 type="var">GF@res</arg1>
+    <arg2 type="var">GF@str</arg2>
+    <arg3 type="string">abd</arg3>
+  </instruction>
+  <instruction order="9" opcode="WRITE">
+    <arg1 type="var">GF@res</arg1>
+  </instruction>
+  <instruction order="10" opcode="LT">
+    <arg1 type="var">GF@res</arg1>
+    <arg2 type="var">GF@int</arg2>
+    <arg3 type="int">-42</arg3>
+  </instruction>
+  <instruction order="11" opcode="WRITE">
+    <arg1 type="var">GF@res</arg1>
+  </instruction>
+  <instruction order="12" opcode="LT">
+    <arg1 type="var">GF@res</arg1>
+    <arg2 type="var">GF@bool</arg2>
+    <arg3 type="bool">true</arg3>
+  </instruction>
+  <instruction order="13" opcode="WRITE">
+    <arg1 type="var">GF@res</arg1>
+  </instruction>
+</program>

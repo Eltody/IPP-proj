@@ -418,6 +418,18 @@ class Instruction():
 			self.OR()
 		elif self.opCode == "NOT":
 			self.NOT()
+		elif self.opCode == "LT":
+			self.LT()
+		elif self.opCode == "EQ":
+			self.EQ()
+		elif self.opCode == "GT":
+			self.GT()
+		elif self.opCode == "INT2CHAR":
+			self.INT2CHAR()
+		elif self.opCode == "STRI2INT":
+			self.STRI2INT()
+		elif self.opCode == "READ":
+			self.READ()
 		else:	# @todo more instructions
 			errorExit(ERROR_IDK, "Unkown instruction")	
 	
@@ -708,7 +720,7 @@ class Instruction():
 		self.args[0].setValue(result)	
 		
 		
-	# --- Instrcution INT2CHAR ---	
+	# --- Instrcution STRI2INT ---	
 	def STRI2INT(self):
 		self.GETCHAR()	# Too lazy
 		

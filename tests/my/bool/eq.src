@@ -1,0 +1,20 @@
+.IPPcode18
+
+DEFVAR GF@str
+DEFVAR GF@int
+DEFVAR GF@bool
+DEFVAR GF@res
+
+MOVE GF@str string@abc
+MOVE GF@int int@42
+MOVE GF@bool bool@false
+
+EQ GF@res GF@str string@abc
+WRITE GF@res
+
+EQ GF@res GF@int int@-42
+WRITE GF@res
+
+EQ GF@res GF@bool bool@false
+WRITE GF@res
+

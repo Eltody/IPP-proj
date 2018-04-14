@@ -1,0 +1,6 @@
+.IPPcode18
+DEFVAR GF@res
+
+STRI2INT GF@res string@Ptakopysk int@2
+
+WRITE GF@res

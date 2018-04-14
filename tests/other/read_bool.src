@@ -1,0 +1,6 @@
+.IPPcode18 # Dont run this one in automatic tests
+DEFVAR GF@res
+
+READ GF@res bool
+
+WRITE GF@res

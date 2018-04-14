@@ -1,0 +1,11 @@
+.IPPcode18
+
+DEFVAR GF@aaa
+DEFVAR GF@res
+MOVE GF@aaa bool@false
+
+NOT GF@res GF@aaa
+WRITE GF@res
+
+NOT GF@res bool@true
+WRITE GF@res

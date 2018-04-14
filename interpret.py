@@ -106,8 +106,9 @@ class GlobalFrame:
 		if name not in self.frame:
 			errorExit(ERROR_IDK, "Coudn't set value to non-existing variable '{0}'".format(name))
 		
-		if type(value) == var:	# If trying to save var
-			value = value.getValue()
+		# --- Saving vare ---
+		if type(value) == var:
+			value = value.getValue()	# Save its value not whole object
 			
 		self.frame[name] = value;
 		
@@ -141,6 +142,21 @@ class Stack():
 		
 	def push(self, value):
 		self.content.append(value)
+		
+		
+class Labels:
+	def __init__(self):
+		self.labels = {}
+		
+	def add(self, name):
+		if name in self.labels:
+			errorExit(ERROR_SEMANTIC, "Label '{0}' already exists".format(name))
+		self.frame[name] = interpret.instrOrder
+		
+	def jump(self, name):
+		if name not in self.labels:
+			errorExit(ERROR_SEMANTIC, "Label '{0}' already exists".format(name))
+		interpret.instrOrder = self.frame[name]
 		
 		
 class var:
@@ -193,14 +209,21 @@ class symb:
 	
 class Interpret():
 	def __init__(self):
-		order = 1
-		#valueCreator = ValueCreator()
+		self.instrOrder = 1
 		self.globalFrame = GlobalFrame()
 		self.stack = Stack()
 		
 	def loadInstructions(self, root):
-		for instrNode in root:
-			# Debug info
+		# --- Search all nodes ---
+		instrNodes = root.findall("./")
+		instrNodesCount = len(instrNodes)
+		#print(type(nodes))
+			
+		# --- Cycle throught every node ---
+		while self.instrOrder <= instrNodesCount:	# Watchout! instrOrder starts at 1
+			instrNode = instrNodes[self.instrOrder-1]
+			
+			# --- Debug info ---
 			logger.debug("=============")
 			logger.debug("{0} {1} ".format(instrNode.tag, instrNode.attrib))
 			for arg in instrNode:
@@ -209,6 +232,10 @@ class Interpret():
 			# --- Processing instruction ---
 			instruction = Instruction(instrNode)
 			instruction.execute()
+			
+			# --- Add counter ---
+			self.instrOrder = self.instrOrder+1
+	
 	
 	def convertValue(self, xmlType, xmlValue):
 		"""Converts XML value (str in python) to actual type (int, str, bool or var)"""
@@ -251,9 +278,19 @@ class Interpret():
 			elif xmlValue == "false":
 				boolean = False
 			else:
-				errorExit(ERROR_IDK, "Invalid bool value")
+				errorExit(ERROR_IDK, "Invalid bool value (given {0})".format(xmlValue))
 			
 			return boolean
+			
+		# --- Type type ---
+		if xmlType == "type":
+			if not re.search(r"^(int|string|bool)$", xmlValue):
+				errorExit(ERROR_IDK, "Invalid type value")
+				
+			return xmlValue
+			
+		# --- Type label ---
+		# @todo
 			
 		# --- Invalid type ---
 		else:
@@ -269,10 +306,12 @@ class Instruction():
 		if node.tag != "instruction":
 			errorExit(ERROR_IDK, "Wrong node loaded (Expected instruction)")
 		
-		# @todo here shuld be order chceck
+		# --- Order check ---
+		if int(node.attrib["order"]) != interpret.instrOrder:
+			errorExit(ERROR_IDK, "Wrong instruction order")
 		
 		# --- Process node ---
-		self.opCode = node.attrib["opcode"]	
+		self.opCode = node.attrib["opcode"].upper()	
 		self.args = self.__loadArguments(node)
 		self.argCount = len(self.args)
 		
@@ -373,15 +412,24 @@ class Instruction():
 			self.SETCHAR()
 		elif self.opCode == "TYPE":
 			self.TYPE()
+		elif self.opCode == "AND":
+			self.AND()
+		elif self.opCode == "OR":
+			self.OR()
+		elif self.opCode == "NOT":
+			self.NOT()
 		else:	# @todo more instructions
 			errorExit(ERROR_IDK, "Unkown instruction")	
 	
+	
+	# === IPPcode18 methods ===
 		
 	# --- Instrcution DEFVAR ---
 	def DEFVAR(self):
 		self.__checkArguments(var)
 		
 		interpret.globalFrame.add(self.args[0].getName())	
+		
 		
 	# --- Instrcution ADD ---
 	def ADD(self):
@@ -390,6 +438,7 @@ class Instruction():
 		# -- Count and save result --
 		result = int(self.args[1]) + int(self.args[2])	
 		self.args[0].setValue(result)
+		
 		
 	# --- Instrcution SUB ---
 	def SUB(self):
@@ -421,16 +470,28 @@ class Instruction():
 		
 		self.args[0].setValue(result)
 		
+		
 	# --- Instrcution WRITE ---
 	def WRITE(self):
 		self.__checkArguments(symb)
 	
-		if type(self.args[0]) == var:	# Printing variable
-			result = self.args[0].getValue()
+		# --- Get value stored in var ---
+		if type(self.args[0]) == var:
+			value = self.args[0].getValue()
 		else:
-			result = str(self.args[0])
+			value = self.args[0]
+
+		# --- Prepare print for bool ---
+		if type(value) == bool:
+			if value == True:
+				value = "true"
+			else:
+				value = "false"
+		
+		result = str(value)
 			
-		print(result, end='')	# end='' means no \n at the end
+		print(result)
+
 
 	# --- Instrcution MOVE ---
 	def MOVE(self):
@@ -438,17 +499,20 @@ class Instruction():
 		
 		self.args[0].setValue(self.args[1])
 		
+		
 	# --- Instrcution PUSHS ---
 	def PUSHS(self):
 		self.__checkArguments(symb)
 	
 		interpret.stack.push(self.args[0])
 
+
 	# --- Instrcution POPS ---
 	def POPS(self):
 		self.__checkArguments(var)
 	
 		interpret.stack.pop(self.args[0])
+		
 		
 	# --- Instrcution STRLEN ---
 	def STRLEN(self):
@@ -458,6 +522,7 @@ class Instruction():
 	
 		self.args[0].setValue(result)
 		
+		
 	# --- Instrcution CONCAT ---
 	def CONCAT(self):
 		self.__checkArguments(var, [str, var], [str, var])
@@ -465,6 +530,7 @@ class Instruction():
 		result = str(self.args[1]) + str(self.args[2])
 	
 		self.args[0].setValue(result)
+		
 		
 	# --- Instrcution GETCHAR ---
 	def GETCHAR(self):
@@ -474,11 +540,12 @@ class Instruction():
 		position = int(self.args[2])
 		
 		if position >= len(string):
-			errorExit(ERROR_STRING, "GETCHAR position out of range")
+			errorExit(ERROR_STRING, "GETCHAR/STRI2INT position out of range")
 		
 		result = string[position]
 	
 		self.args[0].setValue(result)
+		
 		
 	# --- Instrcution GETCHAR ---
 	def SETCHAR(self):
@@ -497,23 +564,176 @@ class Instruction():
 	
 		self.args[0].setValue(result)
 		
+		
 	# --- Instrcution TYPE ---	
 	def TYPE(self):
 		self.__checkArguments(var, symb)
 		
+		# -- Get value inside var --
 		if type(self.args[1]) == var:
 			value = self.args[1].getValue()
 		else:
 			value = self.args[1]
-			
+		
+		# -- Convert value type name to str --	
 		valueType = re.search(r"<class '(str|bool|int)'>", str(type(value))).group(1)
 		
+		# -- Rename str to string --
 		if valueType == "str":
 			result = "string"
 		else:
 			result = valueType
 			
+		# -- Save value --
 		self.args[0].setValue(result)
 
+
+	# --- Instrcution AND ---	
+	def AND(self):
+		self.__checkArguments(var, [bool, var], [bool, var])
 		
+		result = bool(self.args[1]) and bool(self.args[2])
+		
+		self.args[0].setValue(result)
+		
+		
+	# --- Instrcution OR ---	
+	def OR(self):
+		self.__checkArguments(var, [bool, var], [bool, var])
+		
+		result = bool(self.args[1]) or bool(self.args[2])
+		
+		self.args[0].setValue(result)
+
+
+	# --- Instrcution NOT ---	
+	def NOT(self):
+		self.__checkArguments(var, [bool, var])
+		
+		result = not bool(self.args[1])
+		
+		self.args[0].setValue(result)
+		
+		
+	# --- Instrcution LT ---	
+	def LT(self):
+		self.__checkArguments(var, symb, symb)
+		
+		# -- Get values inside var --
+		if type(self.args[1]) == var:
+			valueA = self.args[1].getValue()
+		else:
+			valueA = self.args[1]
+			
+		if type(self.args[2]) == var:
+			valueB = self.args[2].getValue()
+		else:
+			valueB = self.args[2]
+		
+		# -- Check for same type --
+		if type(valueA) != type(valueB):
+			errorExit(ERROR_IDK, "Can't compare different types")
+		
+		# -- Compare values --
+		result = valueA < valueB
+		
+		# -- Save result --
+		self.args[0].setValue(result)
+		
+		
+	# --- Instrcution EQ ---	
+	def EQ(self):
+		self.__checkArguments(var, symb, symb)
+		
+		# -- Get values inside var --
+		if type(self.args[1]) == var:
+			valueA = self.args[1].getValue()
+		else:
+			valueA = self.args[1]
+			
+		if type(self.args[2]) == var:
+			valueB = self.args[2].getValue()
+		else:
+			valueB = self.args[2]
+		
+		# -- Check for same type --
+		if type(valueA) != type(valueB):
+			errorExit(ERROR_IDK, "Can't compare different types")
+		
+		# -- Compare values --
+		result = valueA == valueB
+		
+		# -- Save result --
+		self.args[0].setValue(result)
+		
+		
+	# --- Instrcution GT ---	
+	def GT(self):
+		self.__checkArguments(var, symb, symb)
+		
+		# -- Get values inside var --
+		if type(self.args[1]) == var:
+			valueA = self.args[1].getValue()
+		else:
+			valueA = self.args[1]
+			
+		if type(self.args[2]) == var:
+			valueB = self.args[2].getValue()
+		else:
+			valueB = self.args[2]
+		
+		# -- Check for same type --
+		if type(valueA) != type(valueB):
+			errorExit(ERROR_IDK, "Can't compare different types")
+		
+		# -- Compare values --
+		result = valueA > valueB
+		
+		# -- Save result --
+		self.args[0].setValue(result)
+		
+		
+	# --- Instrcution INT2CHAR ---	
+	def INT2CHAR(self):
+		self.__checkArguments(var, [int, var])
+		
+		value = int(self.args[1])
+		
+		try:
+			result = chr(value)
+		except ValueError:
+			errorExit(ERROR_STRING, "INT2CHAR invalid character code")
+		
+		# -- Save result --
+		self.args[0].setValue(result)	
+		
+		
+	# --- Instrcution INT2CHAR ---	
+	def STRI2INT(self):
+		self.GETCHAR()	# Too lazy
+		
+		result = ord(self.args[0].getValue())
+		
+		# -- Save result --
+		self.args[0].setValue(result)	
+		
+		
+	# --- Instrcution READ ---	
+	def READ(self):
+		self.__checkArguments(var, str)	# Should be <var> <type> but I'm going to bed
+		
+		inputStr = input()
+		
+		# -- Bool input special rules --
+		if self.args[1] == "bool":
+			if inputStr.lower() == "true":
+				inputStr = "true"
+			else:
+				inputStr = "false"
+		
+		# -- Convert input type --
+		result = interpret.convertValue(self.args[1], inputStr)
+		
+		# -- Save result --
+		self.args[0].setValue(result)			
 main()

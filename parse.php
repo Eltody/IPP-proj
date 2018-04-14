@@ -162,7 +162,7 @@
 			if($this->argCount+1 != count($split))
 			{
 				global $order;
-				errorExit(21, "PARSER ERROR: Too many arguments for instruction (#$order: \"$split[0]\")");					
+				errorExit(21, "PARSER ERROR: Too many or too few arguments for instruction (#$order: \"$split[0]\")");					
 			}
 			
 			// Set values for invidual arguments			

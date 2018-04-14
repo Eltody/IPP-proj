@@ -1,0 +1,13 @@
+.IPPcode18
+
+JUMPIFEQ skip int@2 int@2
+
+WRITE string@Tohle\032ne
+
+LABEL skip
+WRITE string@Tohle\032jo
+JUMPIFEQ end int@2 int@3
+
+WRITE string@Tohle\032taky\032jo
+
+LABEL end

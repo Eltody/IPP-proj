@@ -471,6 +471,12 @@ class Instruction():
 			self.LABEL()	
 		elif self.opCode == "JUMP":
 			self.JUMP()
+		elif self.opCode == "JUMPIFEQ":
+			self.JUMPIFEQ_JUMPIFNEQ(True)
+		elif self.opCode == "JUMPIFNEQ":
+			self.JUMPIFEQ_JUMPIFNEQ(False)		
+		elif self.opCode == "DPRINT" or self.opCode == "BREAK":
+			pass
 		else:	# @todo more instructions
 			errorExit(ERROR_IDK, "Unknown instruction")	
 	
@@ -803,4 +809,31 @@ class Instruction():
 		self.__checkArguments(label)
 		
 		Labels.jump(self.args[0])
+		
+		
+	# --- Instrcutions JUMPIFEQ & JUMPIFNEQ ---	
+	def JUMPIFEQ_JUMPIFNEQ(self, expectedResult):
+		self.__checkArguments(label, symb, symb)
+		
+		# -- Get values inside var --
+		if type(self.args[1]) == var:
+			valueA = self.args[1].getValue()
+		else:
+			valueA = self.args[1]
+			
+		if type(self.args[2]) == var:
+			valueB = self.args[2].getValue()
+		else:
+			valueB = self.args[2]
+		
+		# -- Check for same type --
+		if type(valueA) != type(valueB):
+			errorExit(ERROR_IDK, "Can't compare different types")
+		
+		# -- Compare values --
+		result = valueA == valueB
+		
+		# -- Jump if condition is met --
+		if result == expectedResult:
+			Labels.jump(self.args[0])
 main()

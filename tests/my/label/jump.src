@@ -1,0 +1,9 @@
+.IPPcode18
+
+WRITE string@Tohle\032jo
+JUMP skip
+
+WRITE string@Tohl\032ne
+
+LABEL skip
+WRITE string@Tohle\032zas\032jo

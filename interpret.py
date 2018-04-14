@@ -145,18 +145,25 @@ class Stack():
 		
 		
 class Labels:
-	def __init__(self):
-		self.labels = {}
+	labels = {}
+	
+	@classmethod	
+	def add(cls, name):
+		name = str(name)	# Convert type label to str
 		
-	def add(self, name):
-		if name in self.labels:
+		if name in cls.labels:
 			errorExit(ERROR_SEMANTIC, "Label '{0}' already exists".format(name))
-		self.frame[name] = interpret.instrOrder
+			
+		cls.labels[name] = interpret.instrOrder
+	
+	@classmethod	
+	def jump(cls, name):
+		name = str(name)	# Convert type label to str
 		
-	def jump(self, name):
-		if name not in self.labels:
-			errorExit(ERROR_SEMANTIC, "Label '{0}' already exists".format(name))
-		interpret.instrOrder = self.frame[name]
+		if name not in cls.labels:
+			errorExit(ERROR_SEMANTIC, "Label '{0}' does not exist".format(name))
+			
+		interpret.instrOrder = cls.labels[name]
 		
 		
 class var:
@@ -204,6 +211,13 @@ class var:
 class symb:
 	"""Dummy class representing str, int, bool or var in instruction.checkArgumentes()"""
 	pass
+	
+class label:
+	def __init__(self, name):
+		self.name = name
+	
+	def __str__(self):
+		return self.name
 		
 				
 	
@@ -217,25 +231,44 @@ class Interpret():
 		# --- Search all nodes ---
 		instrNodes = root.findall("./")
 		instrNodesCount = len(instrNodes)
-		#print(type(nodes))
+		
+		# --- Search for LABEL nodes ---
+		self.__findLabels(instrNodes)
+		self.instrOrder = 1	# Reset instruction counter
 			
 		# --- Cycle throught every node ---
 		while self.instrOrder <= instrNodesCount:	# Watchout! instrOrder starts at 1
-			instrNode = instrNodes[self.instrOrder-1]
+			# -- Get current node --
+			node = instrNodes[self.instrOrder-1]
 			
-			# --- Debug info ---
+			# -- Skip LABEL nodes --
+			if node.attrib["opcode"].upper() == "LABEL":
+				self.instrOrder = self.instrOrder+1
+				continue	# They are already loaded by __findLabels()
+			
+			# -- Debug info --
 			logger.debug("=============")
-			logger.debug("{0} {1} ".format(instrNode.tag, instrNode.attrib))
-			for arg in instrNode:
+			logger.debug("{0} {1} ".format(node.tag, node.attrib))
+			for arg in node:
 				logger.debug("{0} {1} {2}".format(arg.tag, arg.attrib,arg.text))
 			
-			# --- Processing instruction ---
-			instruction = Instruction(instrNode)
+			# -- Processing instruction --
+			instruction = Instruction(node)
 			instruction.execute()
 			
-			# --- Add counter ---
+			# -- Add counter --
 			self.instrOrder = self.instrOrder+1
 	
+	
+	def __findLabels(self, instrNodes):
+		"""Search every label instruction used and saves it"""
+		for node in instrNodes:
+			if node.attrib["opcode"].upper() == "LABEL":
+				self.instrOrder = int(node.attrib["order"])	# This is read from Labels.add
+				instruction = Instruction(node)
+				instruction.execute()
+				
+		
 	
 	def convertValue(self, xmlType, xmlValue):
 		"""Converts XML value (str in python) to actual type (int, str, bool or var)"""
@@ -290,7 +323,11 @@ class Interpret():
 			return xmlValue
 			
 		# --- Type label ---
-		# @todo
+		if xmlType == "label":
+			if not re.search(r"^[\w_\-$&%*][\w\d_\-$&%*]*$", xmlValue):
+				errorExit(ERROR_IDK, "Invalid label name")
+				
+			return label(xmlValue)	
 			
 		# --- Invalid type ---
 		else:
@@ -430,8 +467,12 @@ class Instruction():
 			self.STRI2INT()
 		elif self.opCode == "READ":
 			self.READ()
+		elif self.opCode == "LABEL":	# Called from Interpret.__findLabels()
+			self.LABEL()	
+		elif self.opCode == "JUMP":
+			self.JUMP()
 		else:	# @todo more instructions
-			errorExit(ERROR_IDK, "Unkown instruction")	
+			errorExit(ERROR_IDK, "Unknown instruction")	
 	
 	
 	# === IPPcode18 methods ===
@@ -747,5 +788,19 @@ class Instruction():
 		result = interpret.convertValue(self.args[1], inputStr)
 		
 		# -- Save result --
-		self.args[0].setValue(result)			
+		self.args[0].setValue(result)	
+		
+		
+	# --- Instrcution LABEL ---	
+	def LABEL(self):	# Called from Interpret.__findLabels()
+		self.__checkArguments(label)
+		
+		Labels.add(self.args[0])
+
+
+	# --- Instrcution JUMP ---	
+	def JUMP(self):
+		self.__checkArguments(label)
+		
+		Labels.jump(self.args[0])
 main()

@@ -18,7 +18,7 @@ handler = logging.StreamHandler()
 formatter = logging.Formatter('%(levelname)s:%(message)s')
 handler.setFormatter(formatter)
 logger.addHandler(handler)
-logger.setLevel("DEBUG")
+logger.setLevel("CRITICAL")
 
 
 # === Main function ===
@@ -169,14 +169,22 @@ class Frames:
 	@classmethod
 	def __identifyFrame(cls, name):
 		if name[:3] == "GF@":
-			return cls.globalFrame
+			frame = cls.globalFrame
+			
 		elif name[:3] == "LF@":
-			return cls.localFrame
+			frame = cls.localFrame
+			
 		elif name[:3] == "TF@":
-			return cls.temporaryFrame
+			frame = cls.temporaryFrame
+			
 		else:
 			Error.exit(Error.syntax, "Invalid frame prefix") # Maybe should be Error.internal because it should be chceked in Instruction.__loadArguments()
 
+		if frame == None:
+			Error.exit(Error.scopeExistence, "Cannot access not initialized frame")
+			
+
+		return frame
 
 class Stack:
 	"""Stack for values in IPPcode18"""
@@ -341,8 +349,10 @@ class Interpret():
 				
 		
 	
-	def convertValue(self, xmlType, xmlValue):
-		"""Converts XML value (str in python) to actual type (int, str, bool or var)"""
+	def convertValue(self, xmlType, xmlValue, die):
+		"""Converts XML value (str in python) to actual type (int, str, bool or var)
+		Paremetr die accepts bool value and determines if conversion is strict and exit program upon fail
+		or it returns defalt value"""
 		
 		# --- Variable type ---
 		if xmlType == "var":
@@ -354,7 +364,10 @@ class Interpret():
 		# --- Integer type ---		
 		elif xmlType == "int":
 			if not re.search(r"^[-+]?\d+$$", xmlValue):
-				Error.Exit(Error.syntax, "Invalid int value")		
+				if die == True:
+					Error.Exit(Error.syntax, "Invalid int value")
+				else:
+					return 0
 			
 			return int(xmlValue)	# Convert str to int	
 			
@@ -365,7 +378,10 @@ class Interpret():
 				xmlValue = ""
 			
 			if re.search(r"(?!\\[0-9]{3})[\s\\#]", xmlValue):	# @see parse.php for regex legend
-				Error.Exit(Error.syntax, "Illegal characters in string")
+				if die == True:
+					Error.Exit(Error.syntax, "Illegal characters in string")
+				else:
+					return ""
 			
 			# -- Search escape sequences --
 			groups = re.findall(r"\\([0-9]{3})", xmlValue)	# Find escape sequences
@@ -388,7 +404,10 @@ class Interpret():
 			elif xmlValue == "false":
 				boolean = False
 			else:
-				Error.Exit(Error.syntax, "Invalid bool value (given {0})".format(xmlValue))
+				if die == True:
+					Error.Exit(Error.syntax, "Invalid bool value (given {0})".format(xmlValue))
+				else:
+					return False
 			
 			return boolean
 			
@@ -450,7 +469,7 @@ class Instruction():
 				Error.exit(Error.structure, "Duplicated argument node")
 		
 			# --- Save arg value ---
-			args[argIndex] = interpret.convertValue(argNode.attrib["type"], argNode.text)
+			args[argIndex] = interpret.convertValue(argNode.attrib["type"], argNode.text, True)
 		
 		# --- Check if loaded all ---	
 		for arg in args:
@@ -553,6 +572,8 @@ class Instruction():
 			self.CREATEFRAME()
 		elif self.opCode == "PUSHFRAME":
 			self.PUSHFRAME()
+		elif self.opCode == "POPFRAME":
+			self.POPFRAME()
 		elif self.opCode == "CALL":
 			self.CALL()
 		elif self.opCode == "RETURN":
@@ -819,14 +840,10 @@ class Instruction():
 		inputStr = input()
 		
 		# -- Bool input special rules --
-		if self.args[1] == "bool":
-			if inputStr.lower() == "true":
-				inputStr = "true"
-			else:
-				inputStr = "false"
+		inputStr = inputStr.lower()
 		
 		# -- Convert input type --
-		result = interpret.convertValue(self.args[1], inputStr)
+		result = interpret.convertValue(self.args[1], inputStr, False)
 		
 		# -- Save result --
 		self.args[0].setValue(result)	

@@ -343,8 +343,12 @@ class Interpret():
 			
 		# --- String type ---
 		elif xmlType == "string":
-			#if re.search(r"(?!\\[0-9]{3})[\s\\#]", xmlValue):	# @see parse.php for regex legend
-			#	errorExit(ERROR_IDK, "Illegal character in string")	# @todo check the regex
+			# -- Check empty string --
+			if xmlValue == None:
+				xmlValue = ""
+			
+			if re.search(r"(?!\\[0-9]{3})[\s\\#]", xmlValue):	# @see parse.php for regex legend
+				errorExit(ERROR_IDK, "Illegal character in string")	# @todo check the regex
 			
 			# -- Decode escape sequence --
 			groups = re.findall(r"\\([0-9]{3})", xmlValue)	# Find escape sequences

@@ -141,7 +141,7 @@
 			
 			// --- Check .rc file ---	
 			exec("python3.6 ".$this->arguments->interpretPath." --source=\"$path.tmp.in\" >\"$path.tmp.out\"");
-			exec("echo $? | diff -q - \"$path.rc\"", $dump, $diff);	
+			exec("printf $? | diff -q - \"$path.rc\"", $dump, $diff);	
 			if($diff == 0)
 				$rc = "OK";
 			else
@@ -158,8 +158,8 @@
 				$out = "NOK";
 				
 			// --- Delete temporary files ---
-			//unlink("$path.tmp.in");
-			//unlink("$path.tmp.out");
+			unlink("$path.tmp.in");
+			unlink("$path.tmp.out");
 				
 				
 			// --- Save results ---

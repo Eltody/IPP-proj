@@ -93,35 +93,71 @@ def processProgramArguments(): # @todo space in source name
 		
 		
 # === Classes ===		
-class GlobalFrame:
-	def	__init__(self):
-		self.frame = {}
+class Frames:
+	globalFrame = {}
+	localFrame = None
+	temporaryFrame = None
 	
-	def add(self, name):
-		if name in self.frame:
-			errorExit(ERROR_IDK, "Variable '{0}' already exist in global frame".format(name))
-		self.frame[name] = None;
+	@classmethod
+	def add(cls, name):
+		# --- Identify frame ---
+		frame = cls.__identifyFrame(name)
 		
-	def set(self, name, value): # @todo Maybe not value but Instruction object? To be sure about the type
-		if name not in self.frame:
+		# --- Check for duplicity ---
+		if name in frame:
+			errorExit(ERROR_IDK, "Variable '{0}' already exist in global frame".format(name))
+		
+		# --- Create var in frame ---
+		frame[name] = None;
+
+
+	@classmethod
+	def set(cls, name, value):
+		# --- Identify frame ---
+		frame = cls.__identifyFrame(name)
+		
+		# --- Check if exists ---
+		if name not in frame:
 			errorExit(ERROR_IDK, "Coudn't set value to non-existing variable '{0}'".format(name))
 		
-		# --- Saving vare ---
-		if type(value) == var:
+		# --- Get actual value ---
+		if type(value) == var:	# If trying to add var (e.g. MOVE GF@aaa GF@bbb)
 			value = value.getValue()	# Save its value not whole object
 			
-		self.frame[name] = value;
+		# --- Save value to frame ---
+		frame[name] = value;
 		
-	def get(self, name):
-		if name not in self.frame:
-			errorExit(ERROR_IDK, "Variable '{0}' does not exist in global frame".format(name))	# @todo Die or retuern None??
 		
-		result = self.frame[name]
+	@classmethod	
+	def get(cls, name):
+		# --- Identify frame ---
+		frame = cls.__identifyFrame(name)
 		
+		# --- Check if exists ---
+		if name not in frame:
+			errorExit(ERROR_IDK, "Variable '{0}' does not exist".format(name))
+		
+		# --- Get value from frame ---
+		result = frame[name]
+		
+		# --- Check if initialized ---
 		if type(result) == type(None):
 			errorExit(ERROR_IDK, "Tried to get non-initilaized value")
 		
-		return result;			
+		# --- Result ---
+		return result;		
+	
+	
+	@classmethod
+	def __identifyFrame(cls, name):
+		if name[:3] == "GF@":
+			return cls.globalFrame
+		elif name[:3] == "LF@":
+			return cls.localFrame
+		elif name[:3] == "TF@":
+			return cls.temporaryFrame
+		else:
+			errorExit(ERROR_IDK, "Invalid frame prefix")
 
 
 class Stack():
@@ -172,14 +208,14 @@ class var:
 		
 	def getValue(self):
 		"""Returns value stored in var"""
-		return interpret.globalFrame.get(self.getName())
+		return Frames.get(self.getName())
 
 	def getName(self):
 		"""Returns name of var including frame prefix"""
 		return self.name
 	
 	def setValue(self, value):
-		interpret.globalFrame.set(self.getName(), value)
+		Frames.set(self.getName(), value)
 			
 	
 	# == Actual value convert method ==
@@ -224,7 +260,6 @@ class label:
 class Interpret():
 	def __init__(self):
 		self.instrOrder = 1
-		self.globalFrame = GlobalFrame()
 		self.stack = Stack()
 		
 	def loadInstructions(self, root):
@@ -487,7 +522,7 @@ class Instruction():
 	def DEFVAR(self):
 		self.__checkArguments(var)
 		
-		interpret.globalFrame.add(self.args[0].getName())	
+		Frames.add(self.args[0].getName())	
 		
 		
 	# --- Instrcution ADD ---

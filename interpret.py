@@ -1,26 +1,15 @@
 #!/usr/bin/env python3
 
+"""IPPcode18 language interpret
+@author Jiri Furda (xfurda00)
+"""
+
 
 # Libraries
 import sys
 import xml.etree.ElementTree as ET
 import re
 import logging
-
-
-# === Constants ===
-ERROR_IDK = 420
-ERROR_ARGUMENT = 10
-ERROR_FILE = 11
-ERROR_STRUCTURE = 31
-ERROR_SYNTAX = 32
-ERROR_SEMANTIC = 52
-ERROR_OPERANDS = 53
-ERROR_NOTEXISTVARIABLE = 54
-ERROR_NOTEXISTSCOPE = 55
-ERROR_MISSINGVALUE = 56
-ERROR_ZERODIVIDE = 57
-ERROR_STRING = 58
 
 
 # === Debug logs ===
@@ -42,57 +31,85 @@ def main():
 	try:
 		tree = ET.ElementTree(file=filePath)	# @todo Throws error when no root found
 	except IOError:
-		print("Opening input file error", file=sys.stderr)
-		sys.exit(ERROR_FILE)		
+		Error.exit(Error.file, "Opening input file error")		
+	except ET.ParseError:
+		Error.exit(Error.structure, "No element found in the file")		
 
 
 	# --- Checking root node ---
 	root = tree.getroot()
 	# @todo check if root not found???
+	
 	if root.tag != "program":
-		sys.exit(ERROR_IDK)
+		Error.exit(Error.structure, "Root node <program> not found")
+		
 	if "language" in root.attrib:
-		if root.attrib["language"] != "IPPcode18":	# @todo Case sensitive or not?
-			sys.exit(ERROR_IDK)	# Invalid language
+		if root.attrib["language"].lower() != "ippcode18":
+			Error.exit(Error.syntax, "Invalid language attribute")
 		del root.attrib["language"]
 	else:
-		sys.exit(ERROR_IDK)	# Language missing
+		Error.exit(Error.structure, "Language attribute missing")
+		
 	if "name" in root.attrib:
 		del root.attrib["name"]
 	if "description" in root.attrib:
 		del root.attrib["description"]
+		
 	if len(root.attrib) != 0:
-		sys.exit(ERROR_IDK)	# Attributes error
+		Error.exit(Error.structure, "Invalid <program> attributes")
 		
 		
 	# --- Processing instructions ---
 	global interpret
 	interpret = Interpret()
 	interpret.loadInstructions(root)
+	
+	
+	# --- Successful end ---
+	sys.exit(0)
 		
 		
 # === Other functions ===
-def errorExit(code, msg):
-	print("ERROR: {0}".format(msg), file=sys.stderr)
-	sys.exit(code)	
-
-
-def processProgramArguments(): # @todo space in source name
+def processProgramArguments():
 	if len(sys.argv) != 2:
-		print("Invalid argument count", file=sys.stderr)
-		sys.exit(ERROR_ARGUMENT)
+		Error.exit(Error.argument, "Invalid argument count")
 	
 	if sys.argv[1] == "--help":
-		print("@todo")
+		print("This program interprets code in language IPPcode18 parsed to XML")
 		sys.exit(0)
 	elif sys.argv[1][:9] == "--source=":
 		return sys.argv[1][9:]	
 	else:
-		print("Illegal argument", file=sys.stderr)
-		sys.exit(ERROR_ARGUMENT)
+		Error.exit(Error.argument, "Invalid argument")
 		
 		
 # === Classes ===		
+class Error:
+	argument = 10
+	file = 11
+	
+	structure = 31
+	syntax = 32
+	
+	semantic = 52
+	operands = 53
+	varExistence = 54
+	scopeExistence = 55
+	missingValue = 56
+	zeroDivide = 57
+	string = 58	
+	
+	custom = 59
+	
+	internal = 99
+	
+	@staticmethod
+	def exit(code, msg):
+		print("ERROR: {0}".format(msg), file=sys.stderr)
+		#print(code)
+		sys.exit(code)
+		
+
 class Frames:
 	globalFrame = {}
 	localFrame = None
@@ -106,7 +123,7 @@ class Frames:
 		
 		# --- Check for duplicity ---
 		if name in frame:
-			errorExit(ERROR_IDK, "Variable '{0}' already exist in global frame".format(name))
+			Error.exit(Error.custom, "Variable '{0}' already exist in global frame".format(name))
 		
 		# --- Create var in frame ---
 		frame[name] = None;
@@ -119,7 +136,7 @@ class Frames:
 		
 		# --- Check if exists ---
 		if name not in frame:
-			errorExit(ERROR_IDK, "Coudn't set value to non-existing variable '{0}'".format(name))
+			Error.exit(Error.varExistence, "Coudn't set value to non-existing variable '{0}'".format(name))
 		
 		# --- Get actual value ---
 		if type(value) == var:	# If trying to add var (e.g. MOVE GF@aaa GF@bbb)
@@ -136,14 +153,14 @@ class Frames:
 		
 		# --- Check if exists ---
 		if name not in frame:
-			errorExit(ERROR_IDK, "Variable '{0}' does not exist".format(name))
+			Error.exit(Error.varExistence, "Variable '{0}' does not exist".format(name))
 		
 		# --- Get value from frame ---
 		result = frame[name]
 		
 		# --- Check if initialized ---
 		if type(result) == type(None):
-			errorExit(ERROR_IDK, "Tried to get non-initilaized value")
+			Error.exit(Error.missingValue, "Tried to get non-initilaized value")
 		
 		# --- Result ---
 		return result;		
@@ -158,7 +175,7 @@ class Frames:
 		elif name[:3] == "TF@":
 			return cls.temporaryFrame
 		else:
-			errorExit(ERROR_IDK, "Invalid frame prefix")
+			Error.exit(Error.syntax, "Invalid frame prefix") # Maybe should be Error.internal because it should be chceked in Instruction.__loadArguments()
 
 
 class Stack:
@@ -168,10 +185,10 @@ class Stack:
 		
 	def pop(self, dest):
 		if len(self.content) == 0:
-			errorExit(ERROR_MISSINGVALUE, "Cannot pop empty stack")
+			Error.exit(Error.missingValue, "Cannot pop empty stack")
 			
 		if type(dest) != var:
-			errorExit(ERROR_IDK, "Cannot pop to non-variable")
+			Error.exit(Error.operands, "Cannot pop to non-variable")
 		
 		value = self.content.pop()	# Pop top of the stack
 		
@@ -190,9 +207,9 @@ class CallStack:	# @todo merge with classicStack
 		cls.content.append(value)
 	
 	@classmethod	
-	def pop(cls, dest):
+	def pop(cls):
 		if len(cls.content) == 0:
-			errorExit(ERROR_IDK, "Cannot pop empty call stack")
+			Error.exit(Error.missingValue, "Cannot pop empty call stack")
 			
 		return cls.content.pop()
 		
@@ -207,7 +224,7 @@ class Labels:
 		name = str(name)	# Convert type label to str
 		
 		if name in cls.labels:
-			errorExit(ERROR_SEMANTIC, "Label '{0}' already exists".format(name))
+			Error.exit(Error.semantic, "Label '{0}' already exists".format(name))
 			
 		cls.labels[name] = interpret.instrOrder
 	
@@ -216,7 +233,7 @@ class Labels:
 		name = str(name)	# Convert type label to str
 		
 		if name not in cls.labels:
-			errorExit(ERROR_SEMANTIC, "Label '{0}' does not exist".format(name))
+			Error.exit(Error.semantic, "Label '{0}' does not exist".format(name))
 			
 		interpret.instrOrder = cls.labels[name]
 		
@@ -242,7 +259,7 @@ class var:
 		value = self.getValue()
 		
 		if type(value) != str:
-			errorExit(ERROR_IDK, "Cannot convert non-string variable to string")
+			Error.exit(Error.internal, "Cannot convert non-string variable to string")
 			
 		return value
 		
@@ -250,7 +267,7 @@ class var:
 		value = self.getValue()
 		
 		if type(value) != int:
-			errorExit(ERROR_IDK, "Cannot convert non-string variable to int")
+			Error.exit(Error.internal, "Cannot convert non-string variable to int")
 			
 		return value
 	
@@ -258,7 +275,7 @@ class var:
 		value = self.getValue()
 		
 		if type(value) != bool:
-			errorExit(ERROR_IDK, "Cannot convert non-string variable to bool")
+			Error.exit(Error.internal, "Cannot convert non-string variable to bool")
 			
 		return value	
 		
@@ -330,14 +347,14 @@ class Interpret():
 		# --- Variable type ---
 		if xmlType == "var":
 			if not re.search(r"^(LF|TF|GF)@[\w_\-$&%*][\w\d_\-$&%*]*$", xmlValue):
-				errorExit(ERROR_IDK, "Invalid var name")
+				Error.Exit(Error.syntax, "Invalid var name")
 				
 			return var(xmlValue)
 		
 		# --- Integer type ---		
 		elif xmlType == "int":
 			if not re.search(r"^[-+]?\d+$$", xmlValue):
-				errorExit(ERROR_IDK, "Invalid int value")		
+				Error.Exit(Error.syntax, "Invalid int value")		
 			
 			return int(xmlValue)	# Convert str to int	
 			
@@ -348,18 +365,20 @@ class Interpret():
 				xmlValue = ""
 			
 			if re.search(r"(?!\\[0-9]{3})[\s\\#]", xmlValue):	# @see parse.php for regex legend
-				errorExit(ERROR_IDK, "Illegal character in string")	# @todo check the regex
+				Error.Exit(Error.syntax, "Illegal characters in string")
 			
-			# -- Decode escape sequence --
+			# -- Search escape sequences --
 			groups = re.findall(r"\\([0-9]{3})", xmlValue)	# Find escape sequences
 			groups = list(set(groups))	# Remove duplicates
 			
+			# -- Decode escape sqeuences --
 			for group in groups:
 				if group == "092":	# Special case for \ (I don't even know why)
 					xmlValue = re.sub("\\\\092", "\\\\", xmlValue)
 					continue
 				xmlValue = re.sub("\\\\{0}".format(group), chr(int(group)), xmlValue)
 			
+			# -- Return decoded string --
 			return xmlValue
 		
 		# --- Boolean type ---
@@ -369,27 +388,27 @@ class Interpret():
 			elif xmlValue == "false":
 				boolean = False
 			else:
-				errorExit(ERROR_IDK, "Invalid bool value (given {0})".format(xmlValue))
+				Error.Exit(Error.syntax, "Invalid bool value (given {0})".format(xmlValue))
 			
 			return boolean
 			
 		# --- Type type ---
 		if xmlType == "type":
 			if not re.search(r"^(int|string|bool)$", xmlValue):
-				errorExit(ERROR_IDK, "Invalid type value")
+				Error.Exit(Error.syntax, "Invalid type value")
 				
 			return xmlValue
 			
 		# --- Type label ---
 		if xmlType == "label":
 			if not re.search(r"^[\w_\-$&%*][\w\d_\-$&%*]*$", xmlValue):
-				errorExit(ERROR_IDK, "Invalid label name")
+				Error.Exit(Error.syntax, "Invalid label name")
 				
 			return label(xmlValue)	
 			
 		# --- Invalid type ---
 		else:
-			errorExit(ERROR_IDK, "Unknown argument type (given {0})".format(xmlType))
+			Error.Exit(Error.syntax, "Unknown argument type (given {0})".format(xmlType))
 	
 	
 	
@@ -399,11 +418,11 @@ class Instruction():
 		
 		# --- Check node ---
 		if node.tag != "instruction":
-			errorExit(ERROR_IDK, "Wrong node loaded (Expected instruction)")
+			Error.exit(Error.structure, "Wrong node loaded (Expected instruction)")
 		
 		# --- Order check ---
 		if int(node.attrib["order"]) != interpret.instrOrder:
-			errorExit(ERROR_IDK, "Wrong instruction order")
+			Error.exit(Error.structure, "Wrong instruction order")
 		
 		# --- Process node ---
 		self.opCode = node.attrib["opcode"].upper()	
@@ -413,31 +432,39 @@ class Instruction():
 		
 	def __loadArguments(self, instrNode):	
 		'''Loads child nodes (<argX>) of <instruction> node'''
-		args = []
-		argIndex = 0	
+		args = [None] * len(instrNode)
 		
-		# --- Load child nodes ---
+		
+		# --- Load child nodes ---	
 		for argNode in instrNode:
-			# -- Check arg node --
-			if argNode.tag != "arg{0}".format(argIndex+1):
-				errorExit(ERROR_IDK, "Wrong node loaded (Expected arg{0})".format(argIndex+1))
+			if argNode.tag[:3] != "arg":
+				Error.exit(Error.structure, "Wrong node loaded (expected arg node given)")
+
+			# -- Get arg index --
+			argIndex = int(argNode.tag[3:])-1
+			
+			if argIndex > len(args):
+				Error.exit(Error.structure, "Argument node out of range")
+			
+			if args[argIndex] != None:
+				Error.exit(Error.structure, "Duplicated argument node")
 		
 			# --- Save arg value ---
-			args.append(interpret.convertValue(argNode.attrib["type"], argNode.text))
-			argIndex = argIndex+1
-			
+			args[argIndex] = interpret.convertValue(argNode.attrib["type"], argNode.text)
+		
+		# --- Check if loaded all ---	
+		for arg in args:
+			if arg == None:
+				Error.exit(Error.structure, "Argument node not loaded")
+		
+		# --- Return loaded arguments ---
 		return(args)
 	
 	
-	def __checkArguments(self, *expectedArgs):	
-		#DEBUG
-		#print(self.argCount)
-		#print(len(expectedArgs))
-		#print(expectedArgs)
-		
+	def __checkArguments(self, *expectedArgs):		
 		# --- Checking arguments count ---
 		if self.argCount != len(expectedArgs):
-			errorExit(ERROR_IDK, "Invalid argument count")
+			Error.exit(Error.semantic, "Invalid argument count")
 			
 		# --- Converting tuple to list ---
 		expectedArgs = list(expectedArgs)	
@@ -455,27 +482,18 @@ class Instruction():
 			# -- Only one allowed type --
 			if type(expectedArgs[i]) == type:
 				if argType != expectedArgs[i]:
-					errorExit(ERROR_IDK, "Invalid argument type (expected {0} given {1})".format(expectedArgs[i],argType))
+					Error.exit(Error.operands, "Invalid argument type (expected {0} given {1})".format(expectedArgs[i],argType))
 					
 			# -- More allowed types --
 			elif type(expectedArgs[i]) == list:
 				if argType not in expectedArgs[i]:	# Check if used argument has one of expected types
-					errorExit(ERROR_IDK, "Invalid argument type (expected {0} given {1})".format(expectedArgs[i],argType))
+					Error.exit(Error.operands, "Invalid argument type (expected {0} given {1})".format(expectedArgs[i],argType))
 					
 			# -- Wrong method parameters --
 			else:
-				errorExit(ERROR_IDK, "Illegal usage of Instruction.checkArguments()")
+				Error.exit(Error.internal, "Illegal usage of Instruction.checkArguments()")
 				
 			i = i+1
-	
-	def __checkVarType(self, variable, expected):
-		'''Compares expected and actula variable type if called on variable'''
-		if type(variable) != var:
-			return
-		
-		if type(variable.getValue()) != expected:
-			errorExit(ERROR_OPERANDS, "Wrong type inside variable (expected {0} given {1})".format(expected, variable.getType()))
-			
 		
 	
 	def execute(self):
@@ -513,12 +531,8 @@ class Instruction():
 			self.OR()
 		elif self.opCode == "NOT":
 			self.NOT()
-		elif self.opCode == "LT":
-			self.LT()
-		elif self.opCode == "EQ":
-			self.EQ()
-		elif self.opCode == "GT":
-			self.GT()
+		elif self.opCode == "LT" or self.opCode == "EQ" or self.opCode == "GT":
+			self.LT_EQ_GT(self.opCode)
 		elif self.opCode == "INT2CHAR":
 			self.INT2CHAR()
 		elif self.opCode == "STRI2INT":
@@ -544,7 +558,7 @@ class Instruction():
 		elif self.opCode == "RETURN":
 			self.RETURN()
 		else:	# @todo more instructions
-			errorExit(ERROR_IDK, "Unknown instruction")	
+			Error.exit(Error.syntax, "Unknown instruction code")	
 	
 	
 	# === IPPcode18 methods ===
@@ -589,7 +603,7 @@ class Instruction():
 
 		# -- Check for zero divide --
 		if int(self.args[2]) == 0:
-			errorExit(ERROR_ZERODIVIDE, "Tried to divide by zero")
+			Error.exit(Error.zeroDivide, "Tried to divide by zero")
 
 		result = int(self.args[1]) // int(self.args[2])	
 		
@@ -665,7 +679,7 @@ class Instruction():
 		position = int(self.args[2])
 		
 		if position >= len(string):
-			errorExit(ERROR_STRING, "GETCHAR/STRI2INT position out of range")
+			Error.exit(Error.string, "GETCHAR/STRI2INT position out of range")
 		
 		result = string[position]
 	
@@ -681,9 +695,9 @@ class Instruction():
 		character = str(self.args[2])
 		
 		if position >= len(string):
-			errorExit(ERROR_STRING, "SETCHAR position out of range")
+			Error.exit(Error.string, "SETCHAR position out of range")
 		if len(character) == 0:
-			errorExit(ERROR_STRING, "SETCHAR replacement character not given")
+			Error.exit(Error.string, "SETCHAR replacement character not given")
 		
 		result = string[:position] + character[0] + string[position+1:]
 	
@@ -740,8 +754,8 @@ class Instruction():
 		self.args[0].setValue(result)
 		
 		
-	# --- Instrcution LT ---	
-	def LT(self):
+	# --- Instrcution LT/EQ/GT ---	
+	def LT_EQ_GT(self, operation):
 		self.__checkArguments(var, symb, symb)
 		
 		# -- Get values inside var --
@@ -757,63 +771,18 @@ class Instruction():
 		
 		# -- Check for same type --
 		if type(valueA) != type(valueB):
-			errorExit(ERROR_IDK, "Can't compare different types")
+			Error.exit(Error.operands, "Can't compare different types")
 		
 		# -- Compare values --
-		result = valueA < valueB
-		
-		# -- Save result --
-		self.args[0].setValue(result)
-		
-		
-	# --- Instrcution EQ ---	
-	def EQ(self):
-		self.__checkArguments(var, symb, symb)
-		
-		# -- Get values inside var --
-		if type(self.args[1]) == var:
-			valueA = self.args[1].getValue()
+		if opreation == "LT":
+			result = valueA < valueB
+		elif operation == "EQ":
+			result = valueA == valueB
+		elif operation == "GT":
+			result = valueA > valueB
 		else:
-			valueA = self.args[1]
-			
-		if type(self.args[2]) == var:
-			valueB = self.args[2].getValue()
-		else:
-			valueB = self.args[2]
-		
-		# -- Check for same type --
-		if type(valueA) != type(valueB):
-			errorExit(ERROR_IDK, "Can't compare different types")
-		
-		# -- Compare values --
-		result = valueA == valueB
-		
-		# -- Save result --
-		self.args[0].setValue(result)
-		
-		
-	# --- Instrcution GT ---	
-	def GT(self):
-		self.__checkArguments(var, symb, symb)
-		
-		# -- Get values inside var --
-		if type(self.args[1]) == var:
-			valueA = self.args[1].getValue()
-		else:
-			valueA = self.args[1]
-			
-		if type(self.args[2]) == var:
-			valueB = self.args[2].getValue()
-		else:
-			valueB = self.args[2]
-		
-		# -- Check for same type --
-		if type(valueA) != type(valueB):
-			errorExit(ERROR_IDK, "Can't compare different types")
-		
-		# -- Compare values --
-		result = valueA > valueB
-		
+			Error.exit(Error.internal, "Invalid operation in Instruction.LT_EQ_GT")
+					
 		# -- Save result --
 		self.args[0].setValue(result)
 		
@@ -827,7 +796,7 @@ class Instruction():
 		try:
 			result = chr(value)
 		except ValueError:
-			errorExit(ERROR_STRING, "INT2CHAR invalid character code")
+			Error.exit(Error.string, "INT2CHAR invalid character code")
 		
 		# -- Save result --
 		self.args[0].setValue(result)	
@@ -894,7 +863,7 @@ class Instruction():
 		
 		# -- Check for same type --
 		if type(valueA) != type(valueB):
-			errorExit(ERROR_IDK, "Can't compare different types")
+			Error.exit(Error.operands, "Can't compare different types")
 		
 		# -- Compare values --
 		result = valueA == valueB
@@ -917,7 +886,7 @@ class Instruction():
 		self.__checkArguments()
 		
 		if Frames.temporaryFrame == None:
-			errorExit(ERROR_NOTEXISTSCOPE, "Tried to access not defined frame")
+			Error.exit(Error.scopeExistence, "Tried to access not defined frame")
 		
 		# -- Move TF to stack --
 		Frames.stack.append(Frames.temporaryFrame)
@@ -935,7 +904,7 @@ class Instruction():
 
 		# -- Check if LF exists --		
 		if Frames.localFrame == None:
-			errorExit(ERROR_NOTEXISTSCOPE, "Local frame not defined")
+			Error.exit(Error.scopeExistence, "Local frame not defined")
 			
 		# -- Set TF --
 		Frames.temporaryFrame = Frames.stack.pop()	# TF = previous top of the stack (LF)

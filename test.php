@@ -140,8 +140,8 @@
 			unset($diff);
 			
 			// --- Check .rc file ---	
-			exec("python3.6 ".$this->arguments->interpretPath." --source=\"$path.tmp.in\" >\"$path.tmp.out\"");
-			exec("printf $? | diff -q - \"$path.rc\"", $dump, $diff);	
+			exec("python3.6 ".$this->arguments->interpretPath." --source=\"$path.tmp.in\" >\"$path.tmp.out\"", $dump, $diff);
+			exec("printf $diff | diff -q - \"$path.rc\"", $dump, $diff);	
 			if($diff == 0)
 				$rc = "OK";
 			else

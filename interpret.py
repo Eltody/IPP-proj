@@ -97,6 +97,7 @@ class Frames:
 	globalFrame = {}
 	localFrame = None
 	temporaryFrame = None
+	stack = []
 	
 	@classmethod
 	def add(cls, name):
@@ -160,7 +161,8 @@ class Frames:
 			errorExit(ERROR_IDK, "Invalid frame prefix")
 
 
-class Stack():
+class Stack:
+	"""Stack for values in IPPcode18"""
 	def __init__(self):
 		self.content = []
 		
@@ -178,6 +180,23 @@ class Stack():
 		
 	def push(self, value):
 		self.content.append(value)
+
+
+class CallStack:	# @todo merge with classicStack
+	content = []
+	
+	@classmethod
+	def push(cls, value):
+		cls.content.append(value)
+	
+	@classmethod	
+	def pop(cls, dest):
+		if len(cls.content) == 0:
+			errorExit(ERROR_IDK, "Cannot pop empty call stack")
+			
+		return cls.content.pop()
+		
+	
 		
 		
 class Labels:
@@ -512,6 +531,14 @@ class Instruction():
 			self.JUMPIFEQ_JUMPIFNEQ(False)		
 		elif self.opCode == "DPRINT" or self.opCode == "BREAK":
 			pass
+		elif self.opCode == "CREATEFRAME":
+			self.CREATEFRAME()
+		elif self.opCode == "PUSHFRAME":
+			self.PUSHFRAME()
+		elif self.opCode == "CALL":
+			self.CALL()
+		elif self.opCode == "RETURN":
+			self.RETURN()
 		else:	# @todo more instructions
 			errorExit(ERROR_IDK, "Unknown instruction")	
 	
@@ -871,4 +898,60 @@ class Instruction():
 		# -- Jump if condition is met --
 		if result == expectedResult:
 			Labels.jump(self.args[0])
+			
+			
+	# --- Instrcution CREATEFRAME ---	
+	def CREATEFRAME(self):
+		self.__checkArguments()
+		
+		# -- Reset TF --
+		Frames.temporaryFrame = {}
+		
+		
+	# --- Instrcution PUSHFRAME ---	
+	def PUSHFRAME(self):
+		self.__checkArguments()
+		
+		if Frames.temporaryFrame == None:
+			errorExit(ERROR_NOTEXISTSCOPE, "Tried to access not defined frame")
+		
+		# -- Move TF to stack --
+		Frames.stack.append(Frames.temporaryFrame)
+		
+		# -- Set LF --
+		Frames.localFrame = Frames.stack[-1]	# LF = top of the stack (previously TF)
+			
+		# -- Reset TF --
+		Frames.temporaryFrame == None
+		
+		
+	# --- Instrcution POPFRAME ---	
+	def POPFRAME(self):		
+		self.__checkArguments()
+
+		# -- Check if LF exists --		
+		if Frames.localFrame == None:
+			errorExit(ERROR_NOTEXISTSCOPE, "Local frame not defined")
+			
+		# -- Set TF --
+		Frames.temporaryFrame = Frames.stack.pop()	# TF = previous top of the stack (LF)
+		
+		# -- Reset LF --
+		Frames.localFrame == None
+		
+		
+	# --- Instrcution CALL ---	
+	def CALL(self):		
+		CallStack.push(interpret.instrOrder)
+		
+		self.JUMP()
+		
+		
+	# --- Instrcution RETURN ---	
+	def RETURN(self):	
+		self.__checkArguments()
+			
+		interpret.instrOrder = CallStack.pop()	
+		
+		
 main()

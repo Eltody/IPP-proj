@@ -42,7 +42,7 @@
 			if(isset($usedOptions["directory"]))
 				$this->testDir = $usedOptions["directory"];
 				
-				if(substr($this->testDir, -1) != "/")	// @todo Should use mb_substr but it's undefined :O
+				if(substr($this->testDir, -1) != "/")
 					$this->testDir = $this->testDir."/";	// Dir must always end with "/"
 				
 			if(isset($usedOptions["recursive"]))
@@ -118,12 +118,27 @@
 		
 			// --- Create missing files ---
 			if(!file_exists($path.".in"))
-				touch($path.".in");	// @todo check for not success
+			{
+				$succ = touch($path.".in");
+				if($succ == false)
+					errorExit(12, "Couldn't generate .in file");
+			}
+				
 			if(!file_exists($path.".out"))
-				touch($path.".out");	// @todo check for not success		
+			{
+				$succ = touch($path.".out");
+				
+				if($succ == false)
+					errorExit(12, "Couldn't generate .out file");
+			}
+				
 			if(!file_exists($path.".rc"))					
 			{
 				$file = fopen($path.".rc", "w");
+				
+				if($file == false)
+					errorExit(12, "Couldn't generate .rc file");
+				
 				fwrite($file, "0");
 				fclose($file);
 			}		
@@ -251,6 +266,7 @@
 		{
 			margin: auto;
 			width: 50%;
+			min-width: 800px;
 			box-shadow: 10px 10px 5px grey;
 		}
 		
@@ -306,12 +322,12 @@
 			background-color: #ff1700;
 		}		
 		</style>
-		<title></title>
+		<title>IPP project tests results</title>
 	</head>
 	<body>
 		<div class="container">
 			<div class="header">
-				<h1>IPP project automatic tests</h1>
+				<h1>IPP project tests results</h1>
 			</div>
 			<div class="content">
 				<?php $testManager->printResults(); ?>

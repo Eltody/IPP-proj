@@ -12,24 +12,13 @@ import re
 import logging
 
 
-# === Debug logs ===
-logger = logging.getLogger("interpret")
-handler = logging.StreamHandler()
-formatter = logging.Formatter('%(levelname)s:%(message)s')
-handler.setFormatter(formatter)
-logger.addHandler(handler)
-logger.setLevel("CRITICAL")
-
-
 # === Main function ===
 def main():
 	filePath = processProgramArguments()
 
-	logger.debug("==================================\nfile: {0}\n==============================\n".format(filePath))
-	
 	# --- Opening input file ---
 	try:
-		tree = ET.ElementTree(file=filePath)	# @todo Throws error when no root found
+		tree = ET.ElementTree(file=filePath)
 	except IOError:
 		Error.exit(Error.file, "Opening input file error")		
 	except ET.ParseError:
@@ -38,7 +27,6 @@ def main():
 
 	# --- Checking root node ---
 	root = tree.getroot()
-	# @todo check if root not found???
 	
 	if root.tag != "program":
 		Error.exit(Error.structure, "Root node <program> not found")
@@ -106,7 +94,6 @@ class Error:
 	@staticmethod
 	def exit(code, msg):
 		print("ERROR: {0}".format(msg), file=sys.stderr)
-		#print(code)
 		sys.exit(code)
 		
 
@@ -207,7 +194,7 @@ class Stack:
 		self.content.append(value)
 
 
-class CallStack:	# @todo merge with classicStack
+class CallStack:
 	content = []
 	
 	@classmethod
@@ -324,12 +311,6 @@ class Interpret():
 			if node.attrib["opcode"].upper() == "LABEL":
 				self.instrOrder = self.instrOrder+1
 				continue	# They are already loaded by __findLabels()
-			
-			# -- Debug info --
-			logger.debug("=============")
-			logger.debug("{0} {1} ".format(node.tag, node.attrib))
-			for arg in node:
-				logger.debug("{0} {1} {2}".format(arg.tag, arg.attrib,arg.text))
 			
 			# -- Processing instruction --
 			instruction = Instruction(node)
@@ -578,7 +559,7 @@ class Instruction():
 			self.CALL()
 		elif self.opCode == "RETURN":
 			self.RETURN()
-		else:	# @todo more instructions
+		else:
 			Error.exit(Error.syntax, "Unknown instruction code")	
 	
 	

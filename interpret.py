@@ -108,6 +108,9 @@ class Frames:
 		# --- Identify frame ---
 		frame = cls.__identifyFrame(name)
 		
+		# --- Remove frame prefix ---
+		name = name[3:]
+		
 		# --- Check for duplicity ---
 		if name in frame:
 			Error.exit(Error.custom, "Variable '{0}' already exist in global frame".format(name))
@@ -120,6 +123,9 @@ class Frames:
 	def set(cls, name, value):
 		# --- Identify frame ---
 		frame = cls.__identifyFrame(name)
+		
+		# --- Remove frame prefix ---
+		name = name[3:]
 		
 		# --- Check if exists ---
 		if name not in frame:
@@ -137,6 +143,9 @@ class Frames:
 	def get(cls, name):
 		# --- Identify frame ---
 		frame = cls.__identifyFrame(name)
+		
+		# --- Remove frame prefix ---
+		name = name[3:]
 		
 		# --- Check if exists ---
 		if name not in frame:
@@ -776,7 +785,7 @@ class Instruction():
 			Error.exit(Error.operands, "Can't compare different types")
 		
 		# -- Compare values --
-		if opreation == "LT":
+		if operation == "LT":
 			result = valueA < valueB
 		elif operation == "EQ":
 			result = valueA == valueB
@@ -890,11 +899,12 @@ class Instruction():
 		Frames.stack.append(Frames.temporaryFrame)
 		
 		# -- Set LF --
+
 		Frames.localFrame = Frames.stack[-1]	# LF = top of the stack (previously TF)
-			
+
 		# -- Reset TF --
-		Frames.temporaryFrame == None
-		
+		Frames.temporaryFrame = None
+
 		
 	# --- Instrcution POPFRAME ---	
 	def POPFRAME(self):		
@@ -908,7 +918,7 @@ class Instruction():
 		Frames.temporaryFrame = Frames.stack.pop()	# TF = previous top of the stack (LF)
 		
 		# -- Reset LF --
-		Frames.localFrame == None
+		Frames.localFrame = None
 		
 		
 	# --- Instrcution CALL ---	

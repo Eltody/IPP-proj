@@ -32,7 +32,7 @@
 			{
 				if($argc == 2)	// If its the only argument used
 				{
-					fputs(STDOUT, "@todo\n");
+					print("This is tool used for automatic testing of parse.php and interpret.py");
 					exit(0);
 				}
 				else

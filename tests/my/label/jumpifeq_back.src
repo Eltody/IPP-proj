@@ -1,0 +1,14 @@
+.IPPcode18
+
+DEFVAR GF@skip
+MOVE GF@skip bool@false
+
+LABEL start
+
+WRITE string@Neco
+JUMPIFEQ end GF@skip bool@true
+MOVE GF@skip bool@true
+JUMPIFEQ start GF@skip bool@true
+
+LABEL end
+

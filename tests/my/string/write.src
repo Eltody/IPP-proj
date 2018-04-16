@@ -1,5 +1,5 @@
 .IPPcode18
-WRITE string@Hello\032
+WRITE string@Hello
 
 DEFVAR GF@aaa
 MOVE GF@aaa string@World

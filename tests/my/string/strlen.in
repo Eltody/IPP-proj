@@ -10,21 +10,18 @@
   <instruction order="3" opcode="WRITE">
     <arg1 type="var">GF@len</arg1>
   </instruction>
-  <instruction order="4" opcode="WRITE">
-    <arg1 type="string">,</arg1>
-  </instruction>
-  <instruction order="5" opcode="DEFVAR">
+  <instruction order="4" opcode="DEFVAR">
     <arg1 type="var">GF@aaa</arg1>
   </instruction>
-  <instruction order="6" opcode="MOVE">
+  <instruction order="5" opcode="MOVE">
     <arg1 type="var">GF@aaa</arg1>
     <arg2 type="string">lokomotiva</arg2>
   </instruction>
-  <instruction order="7" opcode="STRLEN">
+  <instruction order="6" opcode="STRLEN">
     <arg1 type="var">GF@len</arg1>
     <arg2 type="var">GF@aaa</arg2>
   </instruction>
-  <instruction order="8" opcode="WRITE">
+  <instruction order="7" opcode="WRITE">
     <arg1 type="var">GF@len</arg1>
   </instruction>
 </program>

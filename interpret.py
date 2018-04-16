@@ -298,7 +298,7 @@ class var:
 		
 		# --- Check if value is really str ---
 		if type(value) != expectedType:
-			Error.exit(Error.internal, "Unexpected type stored inside variable")	# Internal because it should be checked by Instruction.__checkArguments()
+			Error.exit(Error.operands, "Unexpected type stored inside variable")
 			
 		# --- Return result ---
 		return value

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<program language="IPPcode18">
+  <instruction order="1" opcode="JUMPIFNEQ">
+    <arg1 type="label">skip</arg1>
+    <arg2 type="int">2</arg2>
+    <arg3 type="int">3</arg3>
+  </instruction>
+  <instruction order="2" opcode="WRITE">
+    <arg1 type="string">Tohle\032ne</arg1>
+  </instruction>
+  <instruction order="3" opcode="LABEL">
+    <arg1 type="label">skip</arg1>
+  </instruction>
+  <instruction order="4" opcode="WRITE">
+    <arg1 type="string">Tohle\032jo</arg1>
+  </instruction>
+  <instruction order="5" opcode="JUMPIFNEQ">
+    <arg1 type="label">end</arg1>
+    <arg2 type="int">2</arg2>
+    <arg3 type="int">2</arg3>
+  </instruction>
+  <instruction order="6" opcode="WRITE">
+    <arg1 type="string">Tohle\032taky\032jo</arg1>
+  </instruction>
+  <instruction order="7" opcode="LABEL">
+    <arg1 type="label">end</arg1>
+  </instruction>
+</program>

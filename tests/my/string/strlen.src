@@ -4,8 +4,6 @@ DEFVAR GF@len
 STRLEN GF@len string@Proc\032me\032napadla\032zrovna\032lokomotiva?
 WRITE GF@len
 
-WRITE string@,
-
 DEFVAR GF@aaa 
 MOVE GF@aaa string@lokomotiva
 STRLEN GF@len GF@aaa

@@ -22,11 +22,22 @@ Subject: **Principles of Programming Languages (IPP)**
 | Overall without extenstion | 98%   |
 
 ### Project 2 - interpret.py + test.php
-* Interpret: **?/3**
-* Test: **?/3**
+* Interpret: **5.92/8**
+* Test: **2.3/3**
 * Documentation: **0/3** 
-* Overall: **?/14**
+* Overall: **8.22/14**
+* Commentary: *Missing comments at the end of parse.php, missing documenation of bigger methods*
 * [Corresponding version](https://github.com/Furdys/IPP-proj/tree/83dcd1b60193487f9336ab888cd8824e29ad5657)
+
+| Category                          | Score |
+| --------------------------------- | ----- |
+| Lexical analysis                  | 30%   |
+| Syntax analysis                   | 86%   |
+| Syntax analysis (error detection) | 100%  |
+| Runtime errors (detection)        | 88%   |
+| Instructions interpretation       | 93%   |
+| Programs interpretation           | 16%   |
+| Overall without extenstions       | 73%   |
 
 ## Other poeple's test.php input
 * [Michal Sedlák](https://github.com/KuchynkaMarek/IPPtests)

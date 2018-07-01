@@ -4,7 +4,7 @@ Bachelor study at FIT VUT Brno
 Subject: **Principles of Programming Languages (IPP)**
 
 ## Score
-* Overall: **?/20**
+* Overall: **15/20**
 
 ### Project 1 - parse.php
 * Basic: **5.94/6**
